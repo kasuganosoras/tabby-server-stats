@@ -29,7 +29,6 @@ module.exports = {
             },
           },
         ],
-        // 关键修改：只排除当前项目目录下的 node_modules，而不是路径中包含 node_modules 的所有文件
         exclude: path.resolve(__dirname, 'node_modules'),
       },
       {
