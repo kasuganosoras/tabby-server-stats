@@ -1,0 +1,69 @@
+{
+  "name": "tabby-server-stats",
+  "version": "1.0.2",
+  "description": "Displays server load stats (CPU, RAM, Disk and Network) for SSH sessions using Chart.js",
+  "keywords": [
+    "tabby-plugin",
+    "ssh",
+    "stats",
+    "monitoring",
+    "chartjs"
+  ],
+  "author": "Akkariin",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "typings": "typings/index.d.ts",
+  "scripts": {
+    "build": "webpack --progress --color",
+    "watch": "webpack --watch --progress --color"
+  },
+  "files": [
+    "dist",
+    "typings"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kasuganosoras/tabby-server-stats.git"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.0",
+    "ng2-charts": "^4.1.0"
+  },
+  "peerDependencies": {
+    "@angular/animations": "^14.0.0",
+    "@angular/common": "^14.0.0",
+    "@angular/core": "^14.0.0",
+    "@angular/forms": "^14.0.0",
+    "@angular/platform-browser": "^14.0.0",
+    "rxjs": "^7.5.0",
+    "tabby-core": "*",
+    "tabby-settings": "*",
+    "tabby-terminal": "*"
+  },
+  "devDependencies": {
+    "@angular/animations": "^14.0.0",
+    "@angular/cdk": "^14.0.0",
+    "@angular/common": "^14.0.0",
+    "@angular/compiler": "^14.0.0",
+    "@angular/compiler-cli": "^14.0.0",
+    "@angular/core": "^14.0.0",
+    "@angular/forms": "^14.0.0",
+    "@angular/platform-browser": "^14.0.0",
+    "@angular/platform-browser-dynamic": "^14.0.0",
+    "@ng-bootstrap/ng-bootstrap": "^14.0.0",
+    "@types/node": "^16.0.0",
+    "@popperjs/core": "^2.11.6",
+    "css-loader": "^6.7.0",
+    "rxjs": "^7.5.0",
+    "sass": "^1.56.0",
+    "sass-loader": "^13.2.0",
+    "tabby-core": "latest",
+    "tabby-terminal": "latest",
+    "tabby-settings": "latest",
+    "to-string-loader": "^1.2.0",
+    "ts-loader": "^9.0.0",
+    "typescript": "^4.7.0",
+    "webpack": "^5.0.0",
+    "webpack-cli": "^4.0.0"
+  }
+}
