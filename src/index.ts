@@ -372,7 +372,6 @@ export class ServerStatsSettingsTabProvider extends SettingsTabProvider {
                 <div class="chart-value">{{currentStats.disk | number:'1.0-0'}}%</div>
             </div>
 
-            <!-- 新增：网络状态 -->
             <div class="chart-wrapper" 
                  [style.width.px]="styleConfig.size" 
                  [style.height.px]="styleConfig.size">
