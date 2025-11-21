@@ -19,7 +19,8 @@
   },
   "files": [
     "dist",
-    "typings"
+    "typings",
+    "README.md"
   ],
   "repository": {
     "type": "git",
