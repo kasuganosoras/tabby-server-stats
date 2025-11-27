@@ -5,6 +5,7 @@ A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays rea
 ## Features
 * Real-time Monitoring: Displays CPU usage, RAM usage, Disk usage, and Network upload/download speeds.
 * Draggable Panel: You can drag the stats panel anywhere on the screen.
+* Permanent Bottom Bar: Stats are displayed in a fixed bottom bar that's always visible.
 * Customizable:
   * Change chart colors and opacity.
   * Switch between Vertical and Horizontal layouts.
@@ -19,7 +20,7 @@ A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays rea
 4. Click Install.
 
 ## Usage
-The panel will automatically appear when you connect to a Linux server via SSH.
+The stats will automatically appear when you connect to a Linux server via SSH.
 You can toggle the visibility using the "Activity" icon in the toolbar.
 
 ## License
