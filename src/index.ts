@@ -748,15 +748,15 @@ export class ServerStatsFloatingPanelComponent implements OnInit, OnDestroy {
     styles: [`
         :host { 
             display: block; 
-            position: fixed; 
+            position: absolute; 
             bottom: 0; 
             left: 0; 
             right: 0; 
-            z-index: 10000; 
+            z-index: 100; 
             width: 100%;
         }
         .stats-container {
-            position: fixed;
+            position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
@@ -1081,7 +1081,12 @@ export default class ServerStatsModule {
                 this.bottomBarRef = bottomBarFactory.create(injector)
                 appRef.attachView(this.bottomBarRef.hostView)
                 this.bottomBarElem = (this.bottomBarRef.hostView as EmbeddedViewRef<any>).rootNodes[0] as HTMLElement
-                document.body.appendChild(this.bottomBarElem);
+                const targetContainer = document.querySelector('app-root > div > .content');
+                if (targetContainer) {
+                    targetContainer.appendChild(this.bottomBarElem);
+                } else {
+                    document.body.appendChild(this.bottomBarElem);
+                }
                 (window as any).serverStatsBottomBar = this.bottomBarRef.instance;
                 this.bottomBarRef.changeDetectorRef.detectChanges();
                 setTimeout(() => this.bottomBarRef.instance.checkAndFetch(), 100);
