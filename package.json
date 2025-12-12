@@ -1,6 +1,6 @@
 {
   "name": "tabby-server-stats",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Displays server load stats (CPU, RAM, Disk and Network) for SSH sessions using Chart.js",
   "keywords": [
     "tabby-plugin",
