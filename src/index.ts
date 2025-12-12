@@ -16,6 +16,9 @@ const TRANSLATIONS = {
     'zh-CN': {
         'Server Stats': '服务器状态',
         'Appearance': '外观',
+        'Display Mode': '显示模式',
+        'Floating Panel': '浮动面板',
+        'Bottom Bar': '底部栏',
         'Layout Direction': '排列方向',
         'Vertical': '纵向',
         'Horizontal': '横向',
@@ -45,6 +48,7 @@ export class ServerStatsConfigProvider extends ConfigProvider {
         plugin: {
             serverStats: {
                 enabled: true,
+                displayMode: 'floatingPanel', // 'floatingPanel' or 'bottomBar'
                 location: { x: null, y: null },
                 style: {
                     background: 'rgba(20, 20, 20, 0.90)',
@@ -184,6 +188,25 @@ export class StatsService {
         <h3 translate>Server Stats</h3>
         
         <div class="form-line">
+            <div class="header">
+                <div class="title" translate>Display Mode</div>
+                <div class="description">Choose between floating panel or bottom bar</div>
+            </div>
+            <div class="btn-group">
+                <input type="radio" class="btn-check" name="displayMode" id="displayModeFloating" 
+                    autocomplete="off" value="floatingPanel"
+                    [(ngModel)]="config.store.plugin.serverStats.displayMode" 
+                    (ngModelChange)="save()">
+                <label class="btn btn-secondary" for="displayModeFloating" translate>Floating Panel</label>
+                <input type="radio" class="btn-check" name="displayMode" id="displayModeBottom" 
+                    autocomplete="off" value="bottomBar"
+                    [(ngModel)]="config.store.plugin.serverStats.displayMode" 
+                    (ngModelChange)="save()">
+                <label class="btn btn-secondary" for="displayModeBottom" translate>Bottom Bar</label>
+            </div>
+        </div>
+
+        <div class="form-line" *ngIf="config.store.plugin.serverStats.displayMode === 'floatingPanel'">
              <div class="header">
                 <div class="title" translate>Layout Direction</div>
                 <div class="description" translate>Vertical or Horizontal layout</div>
@@ -221,7 +244,7 @@ export class StatsService {
             </div>
         </div>
 
-        <div class="form-line">
+        <div class="form-line" *ngIf="config.store.plugin.serverStats.displayMode === 'floatingPanel'">
             <div class="header">
                 <div class="title" translate>Chart Size</div>
                 <div class="description" translate>Unit: px</div>
@@ -237,7 +260,7 @@ export class StatsService {
                 (ngModelChange)="save()">
         </div>
 
-        <div class="form-line">
+        <div class="form-line" *ngIf="config.store.plugin.serverStats.displayMode === 'floatingPanel'">
             <div class="header">
                 <div class="title" translate>Panel Position</div>
                 <div class="description" translate>Reset to default position</div>
@@ -247,6 +270,7 @@ export class StatsService {
                 <span translate>Reset Position</span>
             </button>
         </div>
+
     `,
     styles: [`
         .param-input {
@@ -323,6 +347,7 @@ export class ServerStatsSettingsComponent {
             this.config.save();
         }
     }
+
 }
 
 @Injectable()
@@ -337,7 +362,7 @@ export class ServerStatsSettingsTabProvider extends SettingsTabProvider {
 }
 
 @Component({
-    selector: 'server-stats-panel',
+    selector: 'server-stats-floating-panel',
     template: `
         <div class="stats-container" 
              *ngIf="visible"
@@ -424,8 +449,7 @@ export class ServerStatsSettingsTabProvider extends SettingsTabProvider {
         canvas { max-width: calc(100% - 32cqw); max-height: calc(100% - 32cqw); pointer-events: none; }
     `]
 })
-
-export class ServerStatsComponent implements OnInit, OnDestroy {
+export class ServerStatsFloatingPanelComponent implements OnInit, OnDestroy {
     @ViewChild(BaseChartDirective) chart: BaseChartDirective | undefined
     visible = false
     currentStats = { cpu: 0, mem: 0, disk: 0, netRx: 0, netTx: 0 }
@@ -455,7 +479,7 @@ export class ServerStatsComponent implements OnInit, OnDestroy {
         private cdr: ChangeDetectorRef,
         private zone: NgZone
     ) {
-        (window as any).serverStats = this;
+        (window as any).serverStatsFloating = this;
     }
 
     private createChartData(color: string): ChartData<'doughnut'> {
@@ -467,16 +491,17 @@ export class ServerStatsComponent implements OnInit, OnDestroy {
 
     ngOnInit() {
         this.loadConfig();
-        this.config.ready$.subscribe(() => this.loadConfig());
+        this.config.ready$.subscribe(() => {
+            this.loadConfig();
+            setTimeout(() => this.checkAndFetch(), 100);
+        });
         this.config.changed$.subscribe(() => this.loadConfig());
 
         this.tabSubscription = (this.app as any).activeTabChange.subscribe(() => {
-            if (this.visible) {
-                this.visible = false; 
-                this.cdr.detectChanges();
-            }
             this.checkAndFetch();
         });
+
+        setTimeout(() => this.checkAndFetch(), 100);
 
         this.zone.runOutsideAngular(() => {
             this.timerId = window.setInterval(() => {
@@ -598,6 +623,16 @@ export class ServerStatsComponent implements OnInit, OnDestroy {
 
     async checkAndFetch() {
         const isEnabled = this.config.store.plugin?.serverStats?.enabled;
+        const displayMode = this.config.store.plugin?.serverStats?.displayMode || 'bottomBar';
+        
+        if (displayMode !== 'floatingPanel') {
+            if (this.visible) {
+                this.visible = false;
+                this.cdr.detectChanges();
+            }
+            return;
+        }
+
         let activeTab: any = this.app.activeTab
 
         if (!isEnabled || !activeTab) {
@@ -649,6 +684,328 @@ export class ServerStatsComponent implements OnInit, OnDestroy {
     }
 }
 
+@Component({
+    selector: 'server-stats-bottom-bar',
+    template: `
+        <div class="stats-container" 
+             *ngIf="visible"
+             [style.background]="styleConfig.background">
+            <div class="stat-section" *ngIf="loading">
+                <div class="loading-text">Loading server stats...</div>
+            </div>
+            
+            <ng-container *ngIf="!loading">
+                <div class="stat-section">
+                    <div class="stat-label">{{ 'CPU' | translate }}</div>
+                    <div class="stat-content">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" [style.width.%]="currentStats.cpu" [style.background-color]="getCpuColor()"></div>
+                        </div>
+                        <div class="stat-value">{{currentStats.cpu | number:'1.0-0'}}%</div>
+                    </div>
+                </div>
+
+                <div class="stat-separator"></div>
+
+                <div class="stat-section">
+                    <div class="stat-label">{{ 'RAM' | translate }}</div>
+                    <div class="stat-content">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" [style.width.%]="currentStats.mem" [style.background-color]="getMemColor()"></div>
+                        </div>
+                        <div class="stat-value">{{currentStats.mem | number:'1.0-0'}}%</div>
+                    </div>
+                </div>
+
+                <div class="stat-separator"></div>
+
+                <div class="stat-section">
+                    <div class="stat-label">{{ 'DISK' | translate }}</div>
+                    <div class="stat-content">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" [style.width.%]="currentStats.disk" [style.background-color]="getDiskColor()"></div>
+                        </div>
+                        <div class="stat-value">{{currentStats.disk | number:'1.0-0'}}%</div>
+                    </div>
+                </div>
+
+                <div class="stat-separator"></div>
+
+                <div class="stat-section net-section">
+                    <div class="stat-label">{{ 'NET' | translate }}</div>
+                    <div class="net-container">
+                        <div class="net-row download">
+                            <span>↓</span> <span class="net-value">{{ formatSpeed(currentStats.netRx) }}</span>
+                        </div>
+                        <div class="net-row upload">
+                            <span>↑</span> <span class="net-value">{{ formatSpeed(currentStats.netTx) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </ng-container>
+        </div>
+    `,
+    styles: [`
+        :host { 
+            display: block; 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            z-index: 100; 
+            width: 100%;
+        }
+        .stats-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 10000; 
+            backdrop-filter: blur(8px);
+            padding: 4px 12px;
+            display: flex; 
+            gap: 12px;
+            justify-content: flex-start;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            min-height: 28px;
+            max-height: 28px;
+            color: rgba(255,255,255,0.9);
+            user-select: none;
+            font-size: 11px;
+        }
+        .stat-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-label {
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            font-size: 10px;
+            line-height: 1;
+            min-width: 32px;
+        }
+        .stat-content {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .progress-bar-container {
+            height: 6px;
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            width: 60px;
+        }
+        .progress-bar {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            border-radius: 3px;
+        }
+        .stat-value {
+            font-family: monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.9);
+            line-height: 1;
+            white-space: nowrap;
+            min-width: 32px;
+            text-align: left;
+        }
+        .stat-separator {
+            width: 1px;
+            height: 16px;
+            background-color: rgba(255,255,255,0.2);
+            margin: 0 4px;
+        }
+        .net-section {
+            min-width: 120px;
+        }
+        .net-container { 
+            display: flex; 
+            flex-direction: row;
+            gap: 8px;
+            font-family: monospace;
+            font-size: 10px;
+            align-items: center;
+        }
+        .net-row { 
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            line-height: 1;
+        }
+        .net-row span { 
+            display: inline-block;
+        }
+        .net-value {
+            display: inline-block;
+            min-width: 45px;
+            text-align: left;
+        }
+        .download { color: #2ecc71; }
+        .upload { color: #e74c3c; }
+        .loading-text {
+            color: rgba(255,255,255,0.6);
+            font-size: 10px;
+            font-style: italic;
+        }
+    `]
+})
+
+export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
+    visible = false
+    loading = true
+    currentStats = { cpu: 0, mem: 0, disk: 0, netRx: 0, netTx: 0 }
+
+    public styleConfig = { background: 'rgba(20, 20, 20, 0.85)' }
+    private timerId: any = null
+    private tabSubscription: Subscription | null = null
+
+    constructor(
+        private statsService: StatsService,
+        private config: ConfigService,
+        private app: AppService,
+        private cdr: ChangeDetectorRef,
+        private zone: NgZone
+    ) {
+        (window as any).serverStatsBottomBar = this;
+    }
+
+    getCpuColor(): string {
+        const cpu = this.currentStats.cpu;
+        if (cpu < 50) return '#2ecc71';
+        if (cpu < 80) return '#f1c40f';
+        return '#e74c3c';
+    }
+
+    getMemColor(): string {
+        const mem = this.currentStats.mem;
+        if (mem < 50) return '#2ecc71';
+        if (mem < 80) return '#f1c40f';
+        return '#e74c3c';
+    }
+
+    getDiskColor(): string {
+        const disk = this.currentStats.disk;
+        if (disk < 50) return '#2ecc71';
+        if (disk < 80) return '#3498db';
+        return '#e74c3c';
+    }
+
+    ngOnInit() {
+        this.loadConfig();
+        this.config.ready$.subscribe(() => {
+            this.loadConfig();
+            
+            setTimeout(() => this.checkAndFetch(), 100);
+        });
+        this.config.changed$.subscribe(() => this.loadConfig());
+
+        this.tabSubscription = (this.app as any).activeTabChange.subscribe(() => {
+            this.checkAndFetch();
+        });
+
+        setTimeout(() => this.checkAndFetch(), 100);
+
+        this.zone.runOutsideAngular(() => {
+            this.timerId = window.setInterval(() => {
+                this.zone.run(() => {
+                    this.checkAndFetch()
+                })
+            }, 3000)
+        })
+    }
+
+    loadConfig() {
+        const conf = this.config.store.plugin?.serverStats || {};
+
+        if (conf.style) {
+            this.styleConfig = { ...this.styleConfig, ...conf.style };
+        }
+        
+        this.cdr.detectChanges();
+    }
+
+    formatSpeed(bytes: number): string {
+        if (bytes === 0) return '0 B/s';
+        const k = 1024;
+        const sizes = ['B/s', 'K/s', 'M/s', 'G/s'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    forceUpdate() { this.checkAndFetch() }
+
+    async checkAndFetch() {
+        const isEnabled = this.config.store.plugin?.serverStats?.enabled;
+        const displayMode = this.config.store.plugin?.serverStats?.displayMode || 'bottomBar';
+        
+        if (displayMode !== 'bottomBar') {
+            if (this.visible) {
+                this.visible = false;
+                this.loading = true;
+                this.cdr.detectChanges();
+            }
+            return;
+        }
+
+        let activeTab: any = this.app.activeTab
+
+        if (!isEnabled || !activeTab) {
+            if (this.visible) {
+                this.visible = false;
+                this.loading = true;
+                this.cdr.detectChanges();
+            }
+            return;
+        }
+
+        if (activeTab['focusedTab']) {
+            activeTab = activeTab['focusedTab'];
+        }
+
+        const session = activeTab['session'];
+        
+        if (session) {
+            if (!this.visible) {
+                this.visible = true;
+                this.loading = true;
+                this.cdr.detectChanges();
+            }
+            
+            try {
+                const data = await this.statsService.fetchStats(session)
+                if (data) {
+                    this.loading = false;
+                    this.updateStats(data);
+                    this.cdr.detectChanges();
+                    return;
+                }
+            } catch (e) {
+            }
+        } else {
+            if (this.visible) {
+                this.visible = false;
+                this.loading = true;
+                this.cdr.detectChanges();
+            }
+        }
+    }
+
+    updateStats(stats: { cpu: number, mem: number, disk: number, netRx: number, netTx: number }) {
+        this.currentStats = stats
+    }
+
+    ngOnDestroy() {
+        if (this.timerId) clearInterval(this.timerId)
+        if (this.tabSubscription) this.tabSubscription.unsubscribe()
+    }
+}
+
+
 @Injectable()
 export class StatsToolbarButtonProvider extends ToolbarButtonProvider {
     constructor(private config: ConfigService, private translate: TranslateService) { super() }
@@ -665,8 +1022,10 @@ export class StatsToolbarButtonProvider extends ToolbarButtonProvider {
                 this.config.store.plugin.serverStats.enabled = !current
                 this.config.save();
 
-                const component = (window as any).serverStats;
-                if (component) component.forceUpdate();
+                const floatingComponent = (window as any).serverStatsFloating;
+                const bottomBarComponent = (window as any).serverStatsBottomBar;
+                if (floatingComponent) floatingComponent.forceUpdate();
+                if (bottomBarComponent) bottomBarComponent.forceUpdate();
             }
         }]
     }
@@ -674,8 +1033,8 @@ export class StatsToolbarButtonProvider extends ToolbarButtonProvider {
 
 @NgModule({
     imports: [CommonModule, FormsModule, NgChartsModule, TabbyCoreModule, NgbModule], 
-    declarations: [ServerStatsComponent, ServerStatsSettingsComponent],
-    entryComponents: [ServerStatsComponent, ServerStatsSettingsComponent],
+    declarations: [ServerStatsFloatingPanelComponent, ServerStatsBottomBarComponent, ServerStatsSettingsComponent],
+    entryComponents: [ServerStatsFloatingPanelComponent, ServerStatsBottomBarComponent, ServerStatsSettingsComponent],
     providers: [
         { provide: ConfigProvider, useClass: ServerStatsConfigProvider, multi: true },
         { provide: ToolbarButtonProvider, useClass: StatsToolbarButtonProvider, multi: true },
@@ -684,6 +1043,11 @@ export class StatsToolbarButtonProvider extends ToolbarButtonProvider {
     ]
 })
 export default class ServerStatsModule {
+    private floatingRef: any = null
+    private bottomBarRef: any = null
+    private floatingElem: HTMLElement | null = null
+    private bottomBarElem: HTMLElement | null = null
+
     constructor(
         app: AppService, 
         config: ConfigService,
@@ -700,15 +1064,73 @@ export default class ServerStatsModule {
             }, 1000);
         });
 
-        setTimeout(() => {
-            const factory = componentFactoryResolver.resolveComponentFactory(ServerStatsComponent)
-            const componentRef = factory.create(injector)
-            appRef.attachView(componentRef.hostView)
-            const domElem = (componentRef.hostView as EmbeddedViewRef<any>).rootNodes[0] as HTMLElement
-            document.body.appendChild(domElem);
-            
-            (window as any).serverStats = componentRef.instance;
-            componentRef.changeDetectorRef.detectChanges();
-        }, 3000);
+        const createComponent = (displayMode: string) => {
+            this.destroyComponents()
+
+            if (displayMode === 'floatingPanel') {
+                const floatingFactory = componentFactoryResolver.resolveComponentFactory(ServerStatsFloatingPanelComponent)
+                this.floatingRef = floatingFactory.create(injector)
+                appRef.attachView(this.floatingRef.hostView)
+                this.floatingElem = (this.floatingRef.hostView as EmbeddedViewRef<any>).rootNodes[0] as HTMLElement
+                document.body.appendChild(this.floatingElem);
+                (window as any).serverStatsFloating = this.floatingRef.instance;
+                this.floatingRef.changeDetectorRef.detectChanges();
+                setTimeout(() => this.floatingRef.instance.checkAndFetch(), 100);
+            } else {
+                const bottomBarFactory = componentFactoryResolver.resolveComponentFactory(ServerStatsBottomBarComponent)
+                this.bottomBarRef = bottomBarFactory.create(injector)
+                appRef.attachView(this.bottomBarRef.hostView)
+                this.bottomBarElem = (this.bottomBarRef.hostView as EmbeddedViewRef<any>).rootNodes[0] as HTMLElement
+                const targetContainer = document.querySelector('app-root > div > .content');
+                if (targetContainer) {
+                    targetContainer.appendChild(this.bottomBarElem);
+                } else {
+                    document.body.appendChild(this.bottomBarElem);
+                }
+                (window as any).serverStatsBottomBar = this.bottomBarRef.instance;
+                this.bottomBarRef.changeDetectorRef.detectChanges();
+                setTimeout(() => this.bottomBarRef.instance.checkAndFetch(), 100);
+            }
+        }
+
+        const getDisplayMode = () => {
+            return config.store.plugin?.serverStats?.displayMode || 'bottomBar'
+        }
+
+        config.ready$.subscribe(() => {
+            setTimeout(() => {
+                createComponent(getDisplayMode())
+            }, 500);
+        })
+
+        config.changed$.subscribe(() => {
+            const currentMode = getDisplayMode()
+            const existingMode = this.floatingRef ? 'floatingPanel' : (this.bottomBarRef ? 'bottomBar' : null)
+            if (existingMode !== currentMode) {
+                createComponent(currentMode)
+            }
+        })
+    }
+
+    private destroyComponents() {
+        if (this.floatingRef) {
+            this.floatingRef.destroy()
+            if (this.floatingElem && this.floatingElem.parentNode) {
+                this.floatingElem.parentNode.removeChild(this.floatingElem)
+            }
+            this.floatingRef = null
+            this.floatingElem = null
+            delete (window as any).serverStatsFloating
+        }
+
+        if (this.bottomBarRef) {
+            this.bottomBarRef.destroy()
+            if (this.bottomBarElem && this.bottomBarElem.parentNode) {
+                this.bottomBarElem.parentNode.removeChild(this.bottomBarElem)
+            }
+            this.bottomBarRef = null
+            this.bottomBarElem = null
+            delete (window as any).serverStatsBottomBar
+        }
     }
 }
