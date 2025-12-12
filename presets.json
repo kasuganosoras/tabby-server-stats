@@ -1,0 +1,45 @@
+[
+  {
+    "label": "Uptime",
+    "command": "awk '{d=int($1/86400); h=int(($1%86400)/3600); print d\"d \"h\"h\"}' /proc/uptime",
+    "type": "text",
+    "color": "#00b894",
+    "suffix": ""
+  },
+  {
+    "label": "Temp",
+    "command": "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{print int($1/1000)}' || echo 0",
+    "type": "text",
+    "color": "#ff7675",
+    "suffix": "°C"
+  },
+  {
+    "label": "Load",
+    "command": "cat /proc/loadavg | awk '{print $1}'",
+    "type": "text",
+    "color": "#fdcb6e",
+    "suffix": ""
+  },
+  {
+    "label": "Users",
+    "command": "who | grep -c pts",
+    "type": "text",
+    "color": "#0984e3",
+    "suffix": ""
+  },
+  {
+    "label": "Docker",
+    "command": "docker ps -q 2>/dev/null | wc -l",
+    "type": "text",
+    "color": "#0db7ed",
+    "suffix": " run"
+  },
+  {
+    "label": "GPU",
+    "command": "nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo 0",
+    "type": "progress",
+    "color": "#76b900",
+    "maxValue": 100,
+    "suffix": "%"
+  }
+]
