@@ -244,14 +244,16 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
             
             try {
                 const data = await this.statsService.fetchStats(session)
+                this.loading = false;
                 if (data) {
-                    this.loading = false;
                     this.updateStats(data);
                     this.currentStats = data;
-                    this.cdr.detectChanges();
-                    return;
                 }
-            } catch (e) { }
+                this.cdr.detectChanges();
+            } catch (e) {
+                this.loading = false;
+                this.cdr.detectChanges();
+            }
         } else {
             if (this.visible) {
                 this.visible = false;
