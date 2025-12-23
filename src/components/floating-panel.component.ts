@@ -314,7 +314,7 @@ export class ServerStatsFloatingPanelComponent implements OnInit, OnDestroy {
             activeTab = activeTab['focusedTab'];
         }
         const session = activeTab['session'];
-        if (session) {
+        if (session && this.statsService.isPlatformSupport(session)) {
             try {
                 const data = await this.statsService.fetchStats(session)
                 if (data) {

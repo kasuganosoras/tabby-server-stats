@@ -12,6 +12,12 @@ export class StatsService {
 
     constructor(private config: ConfigService) {}
 
+    isPlatformSupport(session: any): boolean {
+        const sshClient = session.ssh && session.ssh.ssh ? session.ssh.ssh : null;
+        const isSSH = sshClient && typeof sshClient.openSessionChannel === 'function';
+        return isSSH || process.platform === 'linux' || process.platform === 'darwin';
+    }
+
     async fetchStats(session: any): Promise<any | null> {
         if (!session || this.isFetching) return null;
         this.isFetching = true;

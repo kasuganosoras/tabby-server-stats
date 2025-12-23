@@ -235,7 +235,7 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
 
         const session = activeTab['session'];
         
-        if (session) {
+        if (session && this.statsService.isPlatformSupport(session)) {
             if (!this.visible) {
                 this.visible = true;
                 this.loading = true;
