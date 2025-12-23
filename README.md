@@ -1,6 +1,6 @@
 # **Tabby Server Stats Plugin**
 
-A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays real-time server statistics (CPU, RAM, Disk, Network) and **custom metrics** when connected via SSH.
+A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays real-time server statistics (CPU, RAM, Disk, Network) and **custom metrics** when connected via SSH / Local Shell.
 
 ![Preview image](https://github.com/user-attachments/assets/5571d1ea-5517-423c-b267-308d06794cde)
 
@@ -29,7 +29,7 @@ A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays rea
 
 ## **Usage**
 
-The stats will automatically appear when you connect to a Linux server via SSH.  
+The stats will automatically appear when you connect to a Linux server via SSH or Local Shell.  
 You can toggle visibility using the "Activity" icon in the toolbar.
 
 ### **How to use Custom Metrics**
