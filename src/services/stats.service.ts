@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core'
 import { ConfigService } from 'tabby-core'
 import { CustomMetric } from '../config'
+import { exec } from 'child_process'
 
 @Injectable({ providedIn: 'root' })
 export class StatsService {
@@ -17,7 +18,10 @@ export class StatsService {
         
         try {
             const sshClient = session.ssh && session.ssh.ssh ? session.ssh.ssh : null;
-            if (!sshClient || typeof sshClient.openSessionChannel !== 'function') {
+            const isSSH = sshClient && typeof sshClient.openSessionChannel === 'function';
+            const isLocalSupported = !isSSH && (process.platform === 'linux' || process.platform === 'darwin');
+
+            if (!isSSH && !isLocalSupported) {
                 this.isFetching = false;
                 return null;
             }
@@ -36,7 +40,14 @@ export class StatsService {
             finalCommand = finalCommand.replace(/\n/g, ' ');
             finalCommand = `/bin/sh -c '${finalCommand.replace(/'/g, "'\\''")}'`;
 
-            const output = await this.exec(sshClient, finalCommand);
+            let output: string | null = null;
+
+            if (isSSH) {
+                output = await this.exec(sshClient, finalCommand);
+            } else if (isLocalSupported) {
+                output = await this.execLocal(finalCommand);
+            }
+
             if (!output) {
                 this.isFetching = false;
                 return null;
@@ -72,6 +83,19 @@ export class StatsService {
         }
         
         return null;
+    }
+
+    private execLocal(cmd: string): Promise<string> {
+        return new Promise((resolve) => {
+            exec(cmd, { timeout: 5000 }, (error, stdout) => {
+                if (error) {
+                    // console.error('Stats: Local Exec Error', error);
+                    resolve('');
+                } else {
+                    resolve(stdout);
+                }
+            });
+        });
     }
 
     private async exec(sshClient: any, cmd: string): Promise<string> {
