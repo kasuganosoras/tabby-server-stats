@@ -97,7 +97,7 @@ import { CustomMetric } from '../config'
             flex-wrap: wrap;
             gap: 8px 12px;
             justify-content: flex-start;
-            align-items: flex-start;
+            align-items: center;
             border-top: 1px solid rgba(255,255,255,0.15);
             color: rgba(255,255,255,0.9);
             user-select: none;
@@ -109,7 +109,7 @@ import { CustomMetric } from '../config'
         .progress-bar-container { height: 6px; background-color: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; width: 60px; }
         .progress-bar { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; border-radius: 3px; }
         .stat-value { font-family: monospace; font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.4; white-space: nowrap; text-align: left; }
-        .stat-separator { width: 1px; min-height: 16px; background-color: rgba(255,255,255,0.2); margin: 0 2px; align-self: stretch; flex: 0 0 1px; }
+        .stat-separator { width: 1px; min-height: 16px; background-color: rgba(255,255,255,0.2); margin: 0 2px; align-self: center; flex: 0 0 1px; }
         .net-section { min-width: 120px; margin-left: auto; }
         .net-container { display: flex; flex-direction: column; gap: 4px; font-family: monospace; font-size: 10px; align-items: flex-start; }
         .net-row { white-space: nowrap; display: flex; align-items: center; gap: 4px; line-height: 1.2; }

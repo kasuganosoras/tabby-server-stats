@@ -22,6 +22,7 @@ type TabInstance = {
     timerId: any
     collector: () => Promise<any>
     state: any
+    configSub: any
 }
 
 const LOG_PATH = path.join(os.tmpdir(), 'tabby-server-stats.log')
@@ -377,11 +378,17 @@ export default class ServerStatsModule {
         const runPoll = async () => {
             const isEnabled = this.config.store.plugin?.serverStats?.enabled
             const displayMode = this.getDisplayMode()
+            if (!isEnabled || displayMode !== 'bottomBar') {
+                if ((barRef.instance as any).hideExternal) {
+                    (barRef.instance as any).hideExternal()
+                }
+                return
+            }
             const result = await collector()
             if (!result) {
                 return
             }
-            if (!isEnabled || displayMode !== 'bottomBar' || !result.session) {
+            if (!result.session) {
                 if ((barRef.instance as any).hideExternal) {
                     (barRef.instance as any).hideExternal()
                 }
@@ -403,15 +410,33 @@ export default class ServerStatsModule {
             }
         }
 
-        if ((barRef.instance as any).setExternalLoading) {
-            (barRef.instance as any).setExternalLoading(true)
+        const syncOnConfigChange = () => {
+            const isEnabled = this.config.store.plugin?.serverStats?.enabled
+            const displayMode = this.getDisplayMode()
+            if (!isEnabled || displayMode !== 'bottomBar') {
+                if ((barRef.instance as any).hideExternal) {
+                    (barRef.instance as any).hideExternal()
+                }
+                return
+            }
+            if ((barRef.instance as any).setExternalLoading) {
+                (barRef.instance as any).setExternalLoading(true)
+            }
+            runPoll()
         }
-        runPoll()
+
+        syncOnConfigChange()
         const timerId = window.setInterval(runPoll, 3000)
+        const configSub = this.config.changed$?.subscribe(() => {
+            syncOnConfigChange()
+        })
 
         const teardown = () => {
             if (timerId) {
                 clearInterval(timerId)
+            }
+            if (configSub && typeof configSub.unsubscribe === 'function') {
+                configSub.unsubscribe()
             }
             try {
                 barRef.destroy()
@@ -426,7 +451,7 @@ export default class ServerStatsModule {
             sshTabEl.classList.remove('server-stats-tab')
         }
 
-        this.tabInstances.set(sshTabEl, { teardown, timerId, collector, state })
+        this.tabInstances.set(sshTabEl, { teardown, timerId, collector, state, configSub })
         this.attachedTabs.add(sshTabEl)
     }
 
