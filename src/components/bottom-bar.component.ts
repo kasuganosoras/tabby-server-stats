@@ -86,34 +86,24 @@ import { CustomMetric } from '../config'
         </div>
     `,
     styles: [`
-        :host { display: block; width: 100%; position: relative; box-sizing: border-box; }
+        :host { display: block; position: absolute; bottom: 0; left: 0; right: 0; z-index: 100; width: 100%; }
         .stats-container {
-            position: relative;
-            width: 100%;
-            box-sizing: border-box;
-            backdrop-filter: blur(8px);
-            padding: 6px 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 12px;
-            justify-content: flex-start;
-            align-items: flex-start;
-            border-top: 1px solid rgba(255,255,255,0.15);
-            color: rgba(255,255,255,0.9);
-            user-select: none;
-            font-size: 11px;
+            position: absolute; bottom: 0; left: 0; right: 0; width: 100%; z-index: 10000; 
+            backdrop-filter: blur(8px); padding: 4px 12px; display: flex; gap: 12px;
+            justify-content: flex-start; align-items: center; border-top: 1px solid rgba(255,255,255,0.15);
+            min-height: 28px; max-height: 28px; color: rgba(255,255,255,0.9); user-select: none; font-size: 11px;
         }
-        .stat-section { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-        .stat-label { font-weight: 500; color: rgba(255,255,255,0.7); font-size: 12px; line-height: 1; min-width: 24px; white-space: nowrap; }
-        .stat-content { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .progress-bar-container { height: 6px; background-color: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; width: 60px; }
+        .stat-section { display: flex; align-items: center; gap: 6px; }
+        .stat-label { font-weight: 500; color: rgba(255,255,255,0.7); font-size: 12px; line-height: 1; min-width: 24px; }
+        .stat-content { display: flex; align-items: center; gap: 6px; }
+        .progress-bar-container { height: 6px; background-color: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; width: 50px; }
         .progress-bar { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; border-radius: 3px; }
-        .stat-value { font-family: monospace; font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.4; white-space: nowrap; text-align: left; }
-        .stat-separator { width: 1px; min-height: 16px; background-color: rgba(255,255,255,0.2); margin: 0 2px; align-self: stretch; flex: 0 0 1px; }
-        .net-section { min-width: 120px; margin-left: auto; }
-        .net-container { display: flex; flex-direction: column; gap: 4px; font-family: monospace; font-size: 10px; align-items: flex-start; }
-        .net-row { white-space: nowrap; display: flex; align-items: center; gap: 4px; line-height: 1.2; }
-        .net-value { display: inline-block; min-width: 60px; text-align: left; }
+        .stat-value { font-family: monospace; font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1; white-space: nowrap; text-align: left; }
+        .stat-separator { width: 1px; height: 16px; background-color: rgba(255,255,255,0.2); margin: 0 2px; }
+        .net-section { min-width: 100px; margin-left: auto; }
+        .net-container { display: flex; flex-direction: row; gap: 8px; font-family: monospace; font-size: 10px; align-items: center; }
+        .net-row { white-space: nowrap; display: flex; align-items: center; gap: 3px; line-height: 1; }
+        .net-value { display: inline-block; min-width: 40px; text-align: left; }
         .download { color: #2ecc71; }
         .upload { color: #e74c3c; }
         .loading-text { color: rgba(255,255,255,0.6); font-size: 10px; font-style: italic; }
@@ -128,9 +118,6 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
     public styleConfig = { background: 'rgba(20, 20, 20, 0.85)' }
     private timerId: any = null
     private tabSubscription: Subscription | null = null
-    private configSubscriptions: Subscription[] = []
-    private boundSession: any = null
-    public useExternalController = false
 
     constructor(
         private statsService: StatsService,
@@ -139,6 +126,7 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
         private cdr: ChangeDetectorRef,
         private zone: NgZone
     ) {
+        (window as any).serverStatsBottomBar = this;
     }
 
     getCpuColor(): string {
@@ -162,37 +150,6 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
         return '#e74c3c';
     }
 
-    bindToSession(session: any) {
-        this.boundSession = session;
-        this.visible = true;
-        this.loading = true;
-    }
-
-    renderExternalStats(stats: any | null) {
-        this.visible = true;
-        if (stats) {
-            this.visible = true;
-            this.loading = false;
-            this.updateStats(stats);
-            this.currentStats = stats;
-        } else {
-            this.loading = false;
-        }
-        this.cdr.detectChanges();
-    }
-
-    setExternalLoading(isLoading: boolean) {
-        this.visible = true;
-        this.loading = isLoading;
-        this.cdr.detectChanges();
-    }
-
-    hideExternal() {
-        this.visible = false;
-        this.loading = true;
-        this.cdr.detectChanges();
-    }
-
     // 获取自定义指标的值
     getCustomValue(index: number): string {
         if (!this.currentStats.custom || !this.currentStats.custom[index]) return '-';
@@ -210,40 +167,16 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
         return Math.min(100, Math.max(0, (val / max) * 100));
     }
 
-    private resolveSession(): any {
-        if (this.boundSession) {
-            return this.boundSession;
-        }
-
-        let activeTab: any = this.app.activeTab;
-        if (!activeTab) {
-            return null;
-        }
-
-        if (activeTab['focusedTab']) {
-            activeTab = activeTab['focusedTab'];
-        }
-
-        return activeTab['session'] || null;
-    }
-
     ngOnInit() {
         this.loadConfig();
-        this.configSubscriptions.push(this.config.ready$.subscribe(() => {
+        this.config.ready$.subscribe(() => {
             this.loadConfig();
             setTimeout(() => this.checkAndFetch(), 100);
-        }));
-        this.configSubscriptions.push(this.config.changed$.subscribe(() => this.loadConfig()));
-
-        if (this.useExternalController) {
-            return;
-        }
-
-        if (!this.boundSession && (this.app as any).activeTabChange) {
-            this.tabSubscription = (this.app as any).activeTabChange.subscribe(() => {
-                this.checkAndFetch();
-            });
-        }
+        });
+        this.config.changed$.subscribe(() => this.loadConfig());
+        this.tabSubscription = (this.app as any).activeTabChange.subscribe(() => {
+            this.checkAndFetch();
+        });
         setTimeout(() => this.checkAndFetch(), 100);
         this.zone.runOutsideAngular(() => {
             this.timerId = window.setInterval(() => {
@@ -273,10 +206,6 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
     forceUpdate() { this.checkAndFetch() }
 
     async checkAndFetch() {
-        if (this.useExternalController) {
-            return;
-        }
-
         const isEnabled = this.config.store.plugin?.serverStats?.enabled;
         const displayMode = this.config.store.plugin?.serverStats?.displayMode || 'bottomBar';
         
@@ -289,9 +218,9 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const session = this.resolveSession();
+        let activeTab: any = this.app.activeTab
 
-        if (!isEnabled || !session) {
+        if (!isEnabled || !activeTab) {
             if (this.visible) {
                 this.visible = false;
                 this.loading = true;
@@ -300,6 +229,12 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
             return;
         }
 
+        if (activeTab['focusedTab']) {
+            activeTab = activeTab['focusedTab'];
+        }
+
+        const session = activeTab['session'];
+        
         if (session && this.statsService.isPlatformSupport(session)) {
             if (!this.visible) {
                 this.visible = true;
@@ -335,6 +270,5 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
     ngOnDestroy() {
         if (this.timerId) clearInterval(this.timerId)
         if (this.tabSubscription) this.tabSubscription.unsubscribe()
-        this.configSubscriptions.forEach(sub => sub.unsubscribe())
     }
 }
