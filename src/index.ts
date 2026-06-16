@@ -214,12 +214,28 @@ export default class ServerStatsModule {
             this.observer.disconnect()
         }
         this.observer = new MutationObserver(mutations => {
-            this.trackMutationBurst(mutations.length)
+            let relevant = 0
             mutations.forEach(mutation => {
+                // Ignore DOM churn that happens *inside* an existing terminal tab.
+                // xterm.js continuously rewrites its own DOM (rendered output and the
+                // blinking cursor); reacting to that turned this observer into a CPU
+                // hot path (100% main-thread JS). New ssh-tab elements are inserted at
+                // the tab-host level, whose target is not inside an ssh-tab, so they
+                // are still captured.
+                const target = mutation.target as HTMLElement
+                if (target && typeof target.closest === 'function' && target.closest('ssh-tab')) {
+                    return
+                }
                 mutation.addedNodes.forEach(node => this.queueMutationNode(node, true))
                 mutation.removedNodes.forEach(node => this.queueMutationNode(node, false))
+                relevant++
             })
-            this.flushMutationQueue()
+            // Only count tab-level mutations toward the burst breaker, so ordinary
+            // terminal output (filtered out above) never trips it.
+            if (relevant > 0) {
+                this.trackMutationBurst(relevant)
+                this.flushMutationQueue()
+            }
         })
         this.observer.observe(target, { childList: true, subtree: true })
     }
