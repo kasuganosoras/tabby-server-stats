@@ -51,14 +51,14 @@
   },
   {
     "label": "I/O Wait",
-    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf "%.2f\n",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
+    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\n\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
     "type": "text",
     "color": "#fdcb6e",
     "suffix": "%"
   },
-    {
+  {
     "label": "Steal",
-    "command": "awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c1; sleep 1; awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c2; awk 'NR==1{s1=$1;t1=$2} NR==2{printf "%.2f%%\n", ($1-s1)/($2-t1)*100}' /tmp/c1 /tmp/c2",
+    "command": "awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c1; sleep 1; awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c2; awk 'NR==1{s1=$1;t1=$2} NR==2{printf \"%.2f%%\n\", ($1-s1)/($2-t1)*100}' /tmp/c1 /tmp/c2",
     "type": "text",
     "color": "#dd27f5",
     "suffix": ""
