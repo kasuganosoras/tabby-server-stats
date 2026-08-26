@@ -1,7 +1,7 @@
 [
   {
     "label": "Uptime",
-    "command": "awk '{d=int($1/86400); h=int(($1%86400)/3600); print d\"d \"h\"h\"}' /proc/uptime",
+    "command": "awk '{d=int($1/86400); h=int(($1%86400)/3600); print d\"d \"h\"h\"}' /proc/uptime 2>/dev/null || echo \"-\"",
     "type": "text",
     "color": "#00b894",
     "suffix": ""
@@ -22,7 +22,7 @@
   },
   {
     "label": "Users",
-    "command": "who | grep -c pts",
+    "command": "who 2>/dev/null | grep -c pts || true",
     "type": "text",
     "color": "#0984e3",
     "suffix": ""
@@ -50,6 +50,13 @@
     "suffix": ""
   },
   {
+    "label": "Ping",
+    "command": "set -- $SSH_CONNECTION; v=$(ss -ti \"dst $1 and dport = $2\" 2>/dev/null | grep -o \"rtt:[0-9.]*\" | head -n1 | cut -d: -f2); awk -v v=\"${v:-0}\" \"BEGIN{printf \\\"%.1f\\\", v}\"",
+    "type": "text",
+    "color": "#00cec9",
+    "suffix": " ms"
+  },
+  {
     "label": "I/O Wait",
     "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\n\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
     "type": "text",
@@ -65,9 +72,10 @@
   },
   {
     "label": "Failed Units",
-    "command": "systemctl --failed --no-legend | wc -l",
+    "command": "systemctl --failed --no-legend 2>/dev/null | wc -l",
     "type": "text",
     "color": "#ff7675",
     "suffix": ""
   }
 ]
+
