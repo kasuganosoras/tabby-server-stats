@@ -8,6 +8,10 @@ A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays rea
 
 * **Real-time Monitoring**: Displays CPU usage, RAM usage, Disk usage, and Network upload/download speeds out of the box.  
 * **Custom Metrics Engine**: Define your own metrics using shell commands (e.g., GPU usage, Temperature, Docker container count).  
+  * **Parallel Subshell Execution**: Metrics run concurrently in non-blocking subshells with streaming output so slow commands don't block fast ones.  
+  * **Individual Intervals & Timeouts**: Set custom refresh intervals and timeouts per metric.  
+  * **Conditional Color Rules**: Change colors dynamically based on thresholds or string matching (e.g., green for OK, red for DOWN).  
+  * **Icon Support**: Built-in SVG presets (Redis, Postgres, Mongo, Docker, etc.), FontAwesome icons, or custom SVG upload.  
   * **Progress Bars**: Visual bars for percentage-based data.  
   * **Text Values**: Display raw data with units (e.g., "45°C", "3 Users").  
 * **Preset Library**: One-click import for common metrics (GPU, Uptime, Temperature, etc.) from the community repository.  
@@ -17,7 +21,7 @@ A plugin for [Tabby Terminal](https://github.com/Eugeny/tabby) that displays rea
 * **Highly Customizable**:  
   * **Drag & Drop Sorting**: Easily reorder metrics in the settings.  
   * **Visual Customization**: Change chart colors, opacity, and layout (Vertical/Horizontal).  
-  * **Multi-language Support**: Interface available in English and Chinese.  
+  * **Multi-language Support**: Interface available in English, Portuguese (pt-BR), and Chinese.  
 * **Zero Dependency**: Uses standard Linux commands via the SSH channel. No agent installation required on the server.
 
 ## **Installation**
@@ -47,14 +51,19 @@ Go to **Settings \-\> Server Stats** to manage your metrics.
 
 You can define any metric by providing a shell command.
 
-* **Label**: Name of the metric (e.g., "GPU").  
+* **Label**: Name of the metric (e.g., "GPU"). Optional if an icon is selected.  
+* **Icon**: Built-in preset (e.g., `redis`, `postgres`, `docker`), FontAwesome icon, or custom SVG upload (optional).  
 * **Command**: A shell command that outputs a **single number or string**.  
-  * *Example (NVidia GPU)*: `nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits`
-  * *Example (Active Users)*: `who | grep -c pts`
+  * *Example (NVidia GPU)*: `nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits`  
+  * *Example (Active Users)*: `who | grep -c pts`  
 * **Type**:  
-  * **Progress Bar**: Requires the command to return a number between 0-100.  
-  * **Text Value**: Displays whatever the command outputs.
+  * **Progress Bar**: Requires the command to return a number between 0-100 (or custom max value).  
+  * **Text Value**: Displays whatever the command outputs.  
+* **Interval**: Custom refresh interval in seconds (optional).  
+* **Timeout**: Subshell execution timeout in seconds (optional).  
+* **Color Rules**: Conditional color rules based on value thresholds or text matching (optional).  
 
 ## **License**
 
 MIT
+

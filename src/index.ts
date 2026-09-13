@@ -26,13 +26,24 @@ type TabInstance = {
 }
 
 const LOG_PATH = path.join(os.tmpdir(), 'tabby-server-stats.log')
+let indexLogCounter = 0
 const logDebug = (message: string) => {
+    if (!StatsService.isDebugEnabled) {
+        return
+    }
     try {
+        indexLogCounter++
+        if (indexLogCounter % 100 === 0) {
+            try {
+                const stat = fs.statSync(LOG_PATH)
+                if (stat.size > 2 * 1024 * 1024) {
+                    fs.writeFileSync(LOG_PATH, `[${new Date().toISOString()}] [log rotated]\n`)
+                }
+            } catch {}
+        }
         fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${message}\n`)
     } catch {}
 }
-
-logDebug('[init] module loaded')
 
 @NgModule({
     imports: [CommonModule, FormsModule, NgChartsModule, TabbyCoreModule, NgbModule], 
@@ -73,8 +84,13 @@ export default class ServerStatsModule {
         private statsService: StatsService,
         translate: TranslateService
     ) {
+        StatsService.isDebugEnabled = Boolean(this.config?.store?.plugin?.serverStats?.debugLogging)
+        this.config.changed$.subscribe(() => {
+            StatsService.isDebugEnabled = Boolean(this.config?.store?.plugin?.serverStats?.debugLogging)
+        })
         logDebug('[init] constructor start')
         this.config.ready$.subscribe(() => {
+            StatsService.isDebugEnabled = Boolean(this.config?.store?.plugin?.serverStats?.debugLogging)
             setTimeout(() => {
                 this.safeRun('translations', () => {
                     for (const [lang, trans] of Object.entries(TRANSLATIONS)) {
@@ -99,7 +115,7 @@ export default class ServerStatsModule {
     }
 
     private getDisplayMode() {
-        return this.config.store.plugin?.serverStats?.displayMode || 'bottomBar'
+        return this.config?.store?.plugin?.serverStats?.displayMode || 'bottomBar'
     }
 
     private safeRun(label: string, fn: () => void) {
@@ -190,16 +206,24 @@ export default class ServerStatsModule {
     }
 
     private attachExistingTabs() {
-        const content = document.querySelector('app-root > div > .content')
+        const content = this.getObserverTarget()
         if (!content) {
-            logDebug('[state] attachExistingTabs: no content')
             this.scheduleObserverRetry()
             return
         }
-        this.rebuildTabElementMap()
         const candidates = content.querySelectorAll('ssh-tab')
-        logDebug(`[state] attachExistingTabs ${candidates.length}`)
-        candidates.forEach(el => this.attachToSshTab(el as HTMLElement))
+        const unattached: HTMLElement[] = []
+        candidates.forEach(el => {
+            const htmlEl = el as HTMLElement
+            if (!this.tabInstances.has(htmlEl) && htmlEl.getAttribute('data-ss-attached') !== '1') {
+                unattached.push(htmlEl)
+            }
+        })
+        if (unattached.length > 0) {
+            logDebug(`[state] attachExistingTabs found ${unattached.length} unattached tabs`)
+            this.rebuildTabElementMap()
+            unattached.forEach(el => this.attachToSshTab(el))
+        }
     }
 
     private startMutationObserver() {
@@ -370,9 +394,51 @@ export default class ServerStatsModule {
         host.appendChild(barElem)
         barRef.changeDetectorRef.detectChanges()
 
+        const tab = this.resolveTabForElement(sshTabEl);
+        if (tab && typeof tab.writeRaw === 'function' && !(tab as any).__ss_patched) {
+            (tab as any).__ss_patched = true;
+            const originalWriteRaw = tab.writeRaw.bind(tab);
+            tab.writeRaw = async function(data: string) {
+                if (!this.frontend) {
+                    if (this.frontendReady$) {
+                        try {
+                            await new Promise<void>(resolve => {
+                                const sub = this.frontendReady$.subscribe(() => {
+                                    if (sub) sub.unsubscribe();
+                                    resolve();
+                                });
+                                setTimeout(resolve, 2000);
+                            });
+                        } catch {}
+                    }
+                }
+                try {
+                    return await originalWriteRaw(data);
+                } catch (e: any) {
+                    if (e && e.message && e.message.includes('Frontend not ready')) {
+                        return;
+                    }
+                    throw e;
+                }
+            };
+        }
+
+        let frontendSub: any = null;
+        if (tab && tab.frontendReady$) {
+            frontendSub = tab.frontendReady$.subscribe(() => {
+                setTimeout(() => runPoll(), 200);
+            });
+        }
+
         const state: any = { last: null }
         let activeSession: any = session
         const collector = async () => {
+            const currentTab = this.resolveTabForElement(sshTabEl)
+            if (currentTab) {
+                if (currentTab.frontendIsReady === false || !currentTab.frontend) {
+                    return { data: null, session: null, supported: false }
+                }
+            }
             const resolvedSession = this.resolveSessionForElement(sshTabEl)
             if (resolvedSession && resolvedSession !== activeSession) {
                 activeSession = resolvedSession
@@ -380,8 +446,8 @@ export default class ServerStatsModule {
                     (barRef.instance as any).bindToSession(activeSession)
                 }
             }
-            if (!activeSession) {
-                return { data: null, session: null, supported: false }
+            if (!activeSession || activeSession.open === false) {
+                return { data: null, session: activeSession, supported: false }
             }
             const supported = this.statsService.isPlatformSupport(activeSession)
             if (!supported) {
@@ -392,7 +458,7 @@ export default class ServerStatsModule {
         }
 
         const runPoll = async () => {
-            const isEnabled = this.config.store.plugin?.serverStats?.enabled
+            const isEnabled = this.config?.store?.plugin?.serverStats?.enabled
             const displayMode = this.getDisplayMode()
             if (!isEnabled || displayMode !== 'bottomBar') {
                 if ((barRef.instance as any).hideExternal) {
@@ -427,7 +493,7 @@ export default class ServerStatsModule {
         }
 
         const syncOnConfigChange = () => {
-            const isEnabled = this.config.store.plugin?.serverStats?.enabled
+            const isEnabled = this.config?.store?.plugin?.serverStats?.enabled
             const displayMode = this.getDisplayMode()
             if (!isEnabled || displayMode !== 'bottomBar') {
                 if ((barRef.instance as any).hideExternal) {
@@ -438,11 +504,11 @@ export default class ServerStatsModule {
             if ((barRef.instance as any).setExternalLoading) {
                 (barRef.instance as any).setExternalLoading(true)
             }
-            runPoll()
+            setTimeout(() => runPoll(), 300)
         }
 
         syncOnConfigChange()
-        const timerId = window.setInterval(runPoll, 3000)
+        const timerId = window.setInterval(runPoll, 1000)
         const configSub = this.config.changed$?.subscribe(() => {
             syncOnConfigChange()
         })
@@ -453,6 +519,9 @@ export default class ServerStatsModule {
             }
             if (configSub && typeof configSub.unsubscribe === 'function') {
                 configSub.unsubscribe()
+            }
+            if (frontendSub && typeof frontendSub.unsubscribe === 'function') {
+                frontendSub.unsubscribe()
             }
             try {
                 barRef.destroy()
@@ -525,6 +594,19 @@ export default class ServerStatsModule {
         const embedded = tab.viewContainerEmbeddedRef && tab.viewContainerEmbeddedRef.rootNodes
         if (embedded && embedded[0] instanceof HTMLElement) {
             return embedded[0]
+        }
+        return null
+    }
+
+    private resolveTabForElement(el: HTMLElement): any {
+        const tab = this.tabElementMap.get(el)
+        if (tab) {
+            return tab
+        }
+        for (const [knownEl, knownTab] of this.tabElementMap.entries()) {
+            if (knownEl && knownEl.contains && knownEl.contains(el)) {
+                return knownTab
+            }
         }
         return null
     }
