@@ -10,6 +10,7 @@ export class StatsToolbarButtonProvider extends ToolbarButtonProvider {
             icon: require('./icons/activity.svg'),
             title: this.translate.instant('Show Server Stats'),
             click: () => {
+                if (!this.config?.store) return;
                 if (!this.config.store.plugin) this.config.store.plugin = {};
                 if (!this.config.store.plugin.serverStats) this.config.store.plugin.serverStats = {};
                 

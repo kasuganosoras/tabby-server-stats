@@ -3,42 +3,66 @@
     "label": "Uptime",
     "command": "awk '{d=int($1/86400); h=int(($1%86400)/3600); print d\"d \"h\"h\"}' /proc/uptime 2>/dev/null || echo \"-\"",
     "type": "text",
+    "icon": "clock",
     "color": "#00b894",
+    "interval": 60,
     "suffix": ""
   },
   {
     "label": "Temp",
     "command": "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{print int($1/1000)}' || echo 0",
     "type": "text",
-    "color": "#ff7675",
-    "suffix": "°C"
+    "icon": "thermometer-half",
+    "color": "#00b894",
+    "interval": 5,
+    "suffix": "°C",
+    "colorRules": [
+      {
+        "operator": ">=",
+        "value": "80",
+        "color": "#ff7675"
+      },
+      {
+        "operator": ">=",
+        "value": "65",
+        "color": "#fdcb6e"
+      }
+    ]
   },
   {
     "label": "Load",
     "command": "cat /proc/loadavg | awk '{print $1}'",
     "type": "text",
+    "icon": "chart-line",
     "color": "#fdcb6e",
+    "interval": 5,
     "suffix": ""
   },
   {
     "label": "Users",
     "command": "who 2>/dev/null | grep -c pts || true",
     "type": "text",
+    "icon": "users",
     "color": "#0984e3",
+    "interval": 10,
     "suffix": ""
   },
   {
     "label": "Docker",
     "command": "docker ps -q 2>/dev/null | wc -l",
     "type": "text",
+    "icon": "fab fa-docker",
     "color": "#0db7ed",
+    "interval": 10,
     "suffix": " run"
   },
   {
     "label": "GPU",
     "command": "nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo 0",
     "type": "progress",
+    "icon": "microchip",
     "color": "#76b900",
+    "interval": 5,
     "maxValue": 100,
     "suffix": "%"
   },
@@ -46,36 +70,73 @@
     "label": "SSH Sessions",
     "command": "ss -tnp | grep sshd | grep ESTAB | wc -l",
     "type": "text",
+    "icon": "terminal",
     "color": "#00ff00",
+    "interval": 10,
     "suffix": ""
   },
   {
     "label": "Ping",
     "command": "set -- $SSH_CONNECTION; v=$(ss -ti \"dst $1 and dport = $2\" 2>/dev/null | grep -o \"rtt:[0-9.]*\" | head -n1 | cut -d: -f2); awk -v v=\"${v:-0}\" \"BEGIN{printf \\\"%.1f\\\", v}\"",
     "type": "text",
+    "icon": "wifi",
     "color": "#00cec9",
+    "interval": 5,
     "suffix": " ms"
   },
   {
     "label": "I/O Wait",
-    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\n\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
+    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\\n\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
     "type": "text",
+    "icon": "hdd",
     "color": "#fdcb6e",
+    "interval": 10,
     "suffix": "%"
   },
   {
     "label": "Steal",
-    "command": "awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c1; sleep 1; awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c2; awk 'NR==1{s1=$1;t1=$2} NR==2{printf \"%.2f%%\n\", ($1-s1)/($2-t1)*100}' /tmp/c1 /tmp/c2",
+    "command": "awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c1; sleep 1; awk '/^cpu /{print $9, $2+$3+$4+$5+$6+$7+$8+$9+$10}' /proc/stat > /tmp/c2; awk 'NR==1{s1=$1;t1=$2} NR==2{printf \"%.2f%%\\n\", ($1-s1)/($2-t1)*100}' /tmp/c1 /tmp/c2",
     "type": "text",
+    "icon": "tachometer-alt",
     "color": "#dd27f5",
+    "interval": 10,
     "suffix": ""
   },
   {
     "label": "Failed Units",
     "command": "systemctl --failed --no-legend 2>/dev/null | wc -l",
     "type": "text",
-    "color": "#ff7675",
-    "suffix": ""
+    "icon": "exclamation-triangle",
+    "color": "#00b894",
+    "interval": 30,
+    "suffix": "",
+    "colorRules": [
+      {
+        "operator": ">=",
+        "value": "1",
+        "color": "#ff7675"
+      }
+    ]
+  },
+  {
+    "label": "Services",
+    "command": "down=$(for s in kong nginx mongod asterisk redis rabbitmq-server; do systemctl is-active --quiet $s 2>/dev/null || echo $s; done | xargs); if ! systemctl list-units --type=service --state=active 2>/dev/null | grep -q postgres; then down=\"${down:+$down }postgres\"; fi; [ -z \"$down\" ] && echo \"OK\" || echo \"DOWN: $down\"",
+    "type": "text",
+    "icon": "server",
+    "color": "#00b894",
+    "interval": 30,
+    "suffix": "",
+    "colorRules": [
+      {
+        "operator": "==",
+        "value": "OK",
+        "color": "#00b894"
+      },
+      {
+        "operator": "contains",
+        "value": "DOWN",
+        "color": "#ff7675"
+      }
+    ]
   }
 ]
-
