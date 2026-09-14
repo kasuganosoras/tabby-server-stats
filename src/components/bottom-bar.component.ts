@@ -71,19 +71,18 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                         <div class="stat-label">
                             <ng-container *ngIf="metric.icon">
                                 <svg *ngIf="getSvgPath(metric.icon)" 
+                                     class="metric-icon"
                                      viewBox="0 0 24 24" 
-                                     width="12" height="12" 
                                      fill="currentColor"
-                                     style="flex-shrink: 0; vertical-align: -1px;">
+                                     aria-hidden="true">
                                     <path [attr.d]="getSvgPath(metric.icon)"></path>
                                 </svg>
                                 <img *ngIf="isUrl(metric.icon)" 
+                                     class="metric-icon"
                                      [src]="getSafeIconUrl(metric.icon)" 
-                                     width="12" height="12" 
-                                     style="object-fit: contain; flex-shrink: 0; vertical-align: -1px;" />
+                                     alt="" />
                                 <i *ngIf="isFa(metric.icon)" 
-                                   [class]="getIconClass(metric.icon)"
-                                   style="font-size: 11px;"></i>
+                                   [class]="getIconClass(metric.icon) + ' metric-icon-fa'"></i>
                             </ng-container>
                             <span *ngIf="metric.label">{{ metric.label }}</span>
                         </div>
@@ -148,6 +147,17 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
         }
         .stat-section { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; height: 20px; }
         .stat-label { font-weight: 500; color: rgba(255,255,255,0.7); font-size: 11px; line-height: 1; min-width: 14px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+        .stat-label .metric-icon {
+            width: 12px !important;
+            height: 12px !important;
+            max-width: 12px;
+            max-height: 12px;
+            flex: 0 0 12px;
+            display: block;
+            object-fit: contain;
+            overflow: hidden;
+        }
+        .stat-label .metric-icon-fa { font-size: 11px; line-height: 1; }
         .stat-content { display: inline-flex; align-items: center; gap: 6px; height: 100%; }
         .progress-bar-container { height: 7px; background-color: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; width: 50px; display: inline-flex; align-items: center; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
         .progress-bar { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; border-radius: 0; }

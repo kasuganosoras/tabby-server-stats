@@ -67,19 +67,18 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                     <div class="chart-label">
                         <ng-container *ngIf="metric.icon">
                             <svg *ngIf="getSvgPath(metric.icon)" 
+                                 class="metric-icon"
                                  viewBox="0 0 24 24" 
-                                 width="14" height="14" 
                                  fill="currentColor"
-                                 style="margin-right: 3px; vertical-align: -2px;">
+                                 aria-hidden="true">
                                 <path [attr.d]="getSvgPath(metric.icon)"></path>
                             </svg>
                             <img *ngIf="isUrl(metric.icon)" 
+                                 class="metric-icon"
                                  [src]="getSafeIconUrl(metric.icon)" 
-                                 width="14" height="14" 
-                                 style="object-fit: contain; margin-right: 3px; vertical-align: -2px;" />
+                                 alt="" />
                             <i *ngIf="isFa(metric.icon)" 
-                               [class]="getIconClass(metric.icon)" 
-                               [class.me-1]="metric.label"></i>
+                               [class]="getIconClass(metric.icon) + (metric.label ? ' metric-icon-fa me-1' : ' metric-icon-fa')"></i>
                         </ng-container>
                         <span *ngIf="metric.label">{{ metric.label }}</span>
                     </div>
@@ -138,7 +137,18 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
         }
         .chart-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; container-type: inline-size; }
         
-        .chart-label { font-size: 12cqw; font-weight: bold; margin-bottom: 2cqw; color: #aaa; pointer-events: none; margin-top: 5cqw }
+        .chart-label { font-size: 12cqw; font-weight: bold; margin-bottom: 2cqw; color: #aaa; pointer-events: none; margin-top: 5cqw; display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+        .chart-label .metric-icon {
+            width: 14px !important;
+            height: 14px !important;
+            max-width: 14px;
+            max-height: 14px;
+            flex: 0 0 14px;
+            display: block;
+            object-fit: contain;
+            overflow: hidden;
+        }
+        .chart-label .metric-icon-fa { font-size: inherit; line-height: 1; }
         .chart-value { position: absolute; top: calc(50% + 10cqw); left: 50%; transform: translate(-50%, -50%); font-size: 25cqw; font-family: monospace; pointer-events: none; color: #fff; font-weight: bold; text-shadow: 0 1px 2px black; }
         
         .net-container { 
