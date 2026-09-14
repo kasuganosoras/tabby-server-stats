@@ -1,4 +1,4 @@
-import { Component, Injectable } from '@angular/core'
+import { Component, Injectable, HostListener } from '@angular/core'
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser'
 import { ConfigService, PlatformService, TranslateService } from 'tabby-core'
 import { SettingsTabProvider } from 'tabby-settings'
@@ -8,7 +8,8 @@ import {
     formatFontAwesomeIcon, 
     getSvgPresetPath, 
     isUrlOrDataUri, 
-    isFaIcon
+    isFaIcon,
+    POPULAR_ICON_PRESETS
 } from '../config'
 
 const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-server-stats/main/presets.json';
@@ -88,30 +89,38 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
                 <div class="title" translate>Default Metrics</div>
                 <div class="description" translate>Select which default indicators to display</div>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="metricCpu"
-                        [(ngModel)]="defaultMetricsConfig.cpu"
-                        (ngModelChange)="save()">
-                    <label class="form-check-label" for="metricCpu" translate>CPU Usage</label>
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="metricCpu"
+                            [(ngModel)]="defaultMetricsConfig.cpu"
+                            (ngModelChange)="save()">
+                        <label class="form-check-label" for="metricCpu" translate>CPU Usage</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="metricRam"
+                            [(ngModel)]="defaultMetricsConfig.ram"
+                            (ngModelChange)="save()">
+                        <label class="form-check-label" for="metricRam" translate>RAM Usage</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="metricDisk"
+                            [(ngModel)]="defaultMetricsConfig.disk"
+                            (ngModelChange)="save()">
+                        <label class="form-check-label" for="metricDisk" translate>Disk Usage</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="metricNet"
+                            [(ngModel)]="defaultMetricsConfig.net"
+                            (ngModelChange)="save()">
+                        <label class="form-check-label" for="metricNet" translate>Network Speed</label>
+                    </div>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="metricRam"
-                        [(ngModel)]="defaultMetricsConfig.ram"
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showDefaultIcons"
+                        [(ngModel)]="showDefaultIcons"
                         (ngModelChange)="save()">
-                    <label class="form-check-label" for="metricRam" translate>RAM Usage</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="metricDisk"
-                        [(ngModel)]="defaultMetricsConfig.disk"
-                        (ngModelChange)="save()">
-                    <label class="form-check-label" for="metricDisk" translate>Disk Usage</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="metricNet"
-                        [(ngModel)]="defaultMetricsConfig.net"
-                        (ngModelChange)="save()">
-                    <label class="form-check-label" for="metricNet" translate>Network Speed</label>
+                    <label class="form-check-label" for="showDefaultIcons" translate>Show icons for default metrics</label>
                 </div>
             </div>
         </div>
@@ -141,7 +150,13 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
                                 {{ (p.type === 'progress' ? 'Progress Bar' : 'Text Value') | translate }}
                             </span>
                             <div class="d-flex align-items-center">
-                                <i [class]="getIconClass(p.icon)" class="me-2 text-primary" *ngIf="p.icon" style="font-size: 15px;"></i>
+                                <span class="d-inline-flex align-items-center justify-content-center text-primary flex-shrink-0 me-2" *ngIf="p.icon" style="width: 18px; height: 18px;">
+                                    <svg *ngIf="getSvgPath(p.icon)" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                                        <path [attr.d]="getSvgPath(p.icon)"></path>
+                                    </svg>
+                                    <img *ngIf="isUrl(p.icon)" [src]="getSafeIconUrl(p.icon)" width="15" height="15" style="object-fit: contain;" />
+                                    <i *ngIf="isFa(p.icon)" [class]="getIconClass(p.icon)" style="font-size: 15px;"></i>
+                                </span>
                                 <div>
                                     <strong>{{ p.label }}</strong>
                                     <div class="text-muted" style="font-size: 12px; font-family: monospace;">{{ p.command }}</div>
@@ -246,50 +261,76 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
             </div>
         </div>
 
-        <div class="card p-3 border">
+        <div class="list-group mb-3">
+            <div class="list-group-item custom-metric-item p-3">
             <h5 class="mb-3">{{ (editingIndex === -1 ? 'Add New Metric' : 'Edit Metric') | translate }}</h5>
             <div class="row g-3">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label" translate>Label</label>
                     <input type="text" class="form-control form-control-sm" [(ngModel)]="currentMetric.label" placeholder="{{ 'e.g. PostgreSQL (optional if icon set)' | translate }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-8">
                     <label class="form-label" translate>Icon (FontAwesome or custom SVG)</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text" *ngIf="currentMetric.icon" style="padding: 0 8px; width: 34px; justify-content: center;">
-                            <svg *ngIf="getSvgPath(currentMetric.icon)" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path [attr.d]="getSvgPath(currentMetric.icon)"></path>
-                            </svg>
-                            <img *ngIf="isUrl(currentMetric.icon)" [src]="getSafeIconUrl(currentMetric.icon)" width="16" height="16" style="object-fit: contain;" />
-                            <i *ngIf="isFa(currentMetric.icon)" [class]="getIconClass(currentMetric.icon)"></i>
-                        </span>
-                        <input type="text" 
-                               class="form-control" 
-                               [(ngModel)]="currentMetric.icon" 
-                               placeholder="{{ 'fa-database, server, redis...' | translate }}">
-                        <input type="file" 
-                               #svgFileInput 
-                               accept=".svg,image/svg+xml" 
-                               (change)="onSvgFileSelected($event)" 
-                               style="display: none;">
-                        <button type="button" 
-                                class="btn btn-outline-secondary" 
-                                (click)="svgFileInput.click()" 
-                                title="{{ 'Upload Custom SVG' | translate }}">
-                            <i class="fas fa-file-upload me-1"></i> <span translate>SVG</span>
-                        </button>
-                        <button type="button" 
-                                class="btn btn-outline-danger" 
-                                *ngIf="currentMetric.icon" 
-                                (click)="clearIcon()" 
-                                title="{{ 'Remove Icon' | translate }}">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <div class="icon-input-wrap position-relative">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text" *ngIf="currentMetric.icon" style="padding: 0 8px; width: 34px; justify-content: center;">
+                                <svg *ngIf="getSvgPath(currentMetric.icon)" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path [attr.d]="getSvgPath(currentMetric.icon)"></path>
+                                </svg>
+                                <img *ngIf="isUrl(currentMetric.icon)" [src]="getSafeIconUrl(currentMetric.icon)" width="16" height="16" style="object-fit: contain;" />
+                                <i *ngIf="isFa(currentMetric.icon)" [class]="getIconClass(currentMetric.icon)"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   [(ngModel)]="currentMetric.icon" 
+                                   placeholder="{{ 'fa-database, server, redis...' | translate }}">
+                            <button type="button" 
+                                    class="btn btn-outline-secondary icon-picker-toggle"
+                                    (click)="toggleIconPicker($event)"
+                                    title="{{ 'Choose preset icon' | translate }}">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <input type="file" 
+                                   #svgFileInput 
+                                   accept=".svg,image/svg+xml" 
+                                   (change)="onSvgFileSelected($event)" 
+                                   style="display: none;">
+                            <button type="button" 
+                                    class="btn btn-outline-secondary" 
+                                    (click)="svgFileInput.click()" 
+                                    title="{{ 'Upload Custom SVG' | translate }}">
+                                <i class="fas fa-file-upload me-1"></i> <span translate>SVG</span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-outline-danger" 
+                                    *ngIf="currentMetric.icon" 
+                                    (click)="clearIcon()" 
+                                    title="{{ 'Remove Icon' | translate }}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="icon-picker-panel" *ngIf="iconPickerOpen" (click)="$event.stopPropagation()">
+                            <div class="icon-picker-title" translate>Preset Icons</div>
+                            <div class="icon-picker-grid">
+                                <button type="button"
+                                        class="icon-picker-item"
+                                        *ngFor="let preset of iconPresets"
+                                        [class.active]="currentMetric.icon === preset.name"
+                                        [title]="preset.label"
+                                        (click)="selectPresetIcon(preset.name)">
+                                    <svg *ngIf="getSvgPath(preset.name)" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                        <path [attr.d]="getSvgPath(preset.name)"></path>
+                                    </svg>
+                                    <i *ngIf="isFa(preset.name)" [class]="getIconClass(preset.name)"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-text text-muted" style="font-size: 11px;">
                         <span translate>Use FontAwesome (ex: database, server, memory) or upload a custom .svg file</span>
                     </div>
                 </div>
+
                 <div class="col-md-3">
                     <label class="form-label" translate>Type</label>
                     <select class="form-select form-select-sm" [(ngModel)]="currentMetric.type">
@@ -297,7 +338,6 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
                         <option value="text" translate>Text Value</option>
                     </select>
                 </div>
-
                 <div class="col-md-3">
                     <label class="form-label" translate>Default Color</label>
                     <input type="color" class="form-control form-control-color form-control-sm w-100" [(ngModel)]="currentMetric.color">
@@ -389,6 +429,7 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
                     </button>
                 </div>
             </div>
+            </div>
         </div>
     `,
     styles: [`
@@ -403,6 +444,47 @@ const PRESETS_URL = 'https://raw.githubusercontent.com/kasuganosoras/tabby-serve
         .custom-metric-item { border: 1px solid rgba(100, 100, 100, 0.15); border-radius: 6px; transition: border-color 0.2s ease; }
         .custom-metric-item:hover { border-color: rgba(255, 255, 255, 0.25); }
         .form-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; }
+        .icon-input-wrap { position: relative; }
+        .icon-picker-panel {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(100% + 6px);
+            z-index: 30;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(120, 120, 120, 0.35);
+            background: var(--bs-body-bg, #1e1e1e);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .icon-picker-title {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 8px;
+        }
+        .icon-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+            gap: 6px;
+        }
+        .icon-picker-item {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: 1px solid rgba(120, 120, 120, 0.25);
+            background: transparent;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+        .icon-picker-item:hover { border-color: rgba(255, 255, 255, 0.45); background: rgba(255, 255, 255, 0.06); }
+        .icon-picker-item.active { border-color: #0d6efd; background: rgba(13, 110, 253, 0.18); }
         :host-context(.theme-dark) .separator { background: rgba(255,255,255,0.1); }
     `]
 })
@@ -421,6 +503,8 @@ export class ServerStatsSettingsComponent {
     editingIndex = -1;
     draggedIndex: number | null = null;
     isDragging = false;
+    iconPickerOpen = false;
+    iconPresets = POPULAR_ICON_PRESETS;
     
     // 预设相关
     presets: Partial<CustomMetric>[] = [];
@@ -432,6 +516,23 @@ export class ServerStatsSettingsComponent {
         public config: ConfigService,
         private sanitizer: DomSanitizer
     ) {}
+
+    @HostListener('document:click')
+    onDocumentClick() {
+        if (this.iconPickerOpen) {
+            this.iconPickerOpen = false;
+        }
+    }
+
+    toggleIconPicker(event: Event) {
+        event.stopPropagation();
+        this.iconPickerOpen = !this.iconPickerOpen;
+    }
+
+    selectPresetIcon(name: string) {
+        this.currentMetric.icon = name;
+        this.iconPickerOpen = false;
+    }
 
     getIconClass(icon?: string): string {
         return formatFontAwesomeIcon(icon);
@@ -459,6 +560,7 @@ export class ServerStatsSettingsComponent {
 
     clearIcon() {
         this.currentMetric.icon = '';
+        this.iconPickerOpen = false;
     }
 
     onSvgFileSelected(event: any) {
@@ -469,6 +571,7 @@ export class ServerStatsSettingsComponent {
             const result = e.target?.result as string;
             if (result) {
                 this.currentMetric.icon = result;
+                this.iconPickerOpen = false;
             }
         };
         reader.readAsDataURL(file);
@@ -500,6 +603,23 @@ export class ServerStatsSettingsComponent {
             this.config.store.plugin.serverStats = {};
         }
         this.config.store.plugin.serverStats.debugLogging = Boolean(val);
+    }
+
+    get showDefaultIcons(): boolean {
+        return this.config?.store?.plugin?.serverStats?.showDefaultIcons !== false;
+    }
+
+    set showDefaultIcons(val: boolean) {
+        if (!this.config?.store) {
+            return;
+        }
+        if (!this.config.store.plugin) {
+            this.config.store.plugin = {};
+        }
+        if (!this.config.store.plugin.serverStats) {
+            this.config.store.plugin.serverStats = {};
+        }
+        this.config.store.plugin.serverStats.showDefaultIcons = Boolean(val);
     }
 
     addColorRule() {
@@ -577,6 +697,7 @@ export class ServerStatsSettingsComponent {
 
     editMetric(index: number) {
         this.editingIndex = index;
+        this.iconPickerOpen = false;
         this.currentMetric = JSON.parse(JSON.stringify(this.customMetrics[index]));
         if (!this.currentMetric.colorRules) {
             this.currentMetric.colorRules = [];
@@ -585,6 +706,7 @@ export class ServerStatsSettingsComponent {
 
     cancelEdit() {
         this.editingIndex = -1;
+        this.iconPickerOpen = false;
         this.currentMetric = { ...this.defaultMetric, colorRules: [] };
     }
 

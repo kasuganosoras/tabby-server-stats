@@ -5,7 +5,7 @@ import { AppService, ConfigService } from 'tabby-core'
 import { BaseChartDirective } from 'ng2-charts'
 import { ChartConfiguration, ChartData, ChartType } from 'chart.js'
 import { StatsService } from '../services/stats.service'
-import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, isUrlOrDataUri, isFaIcon } from '../config'
+import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, isUrlOrDataUri, isFaIcon, DEFAULT_METRIC_ICONS } from '../config'
 
 @Component({
     selector: 'server-stats-floating-panel',
@@ -23,7 +23,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                  *ngIf="defaultMetrics.cpu"
                  [style.width.px]="styleConfig.size" 
                  [style.height.px]="styleConfig.size">
-                <div class="chart-label">{{ 'CPU' | translate }}</div>
+                <div class="chart-label">
+                    <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.cpu)" style="margin-right: 3px;"></i>
+                    <span>{{ 'CPU' | translate }}</span>
+                </div>
                 <canvas baseChart [data]="cpuData" [options]="chartOptions" [type]="doughnutChartType"></canvas>
                 <div class="chart-value">{{currentStats.cpu | number:'1.0-0'}}%</div>
             </div>
@@ -33,7 +36,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                  *ngIf="defaultMetrics.ram"
                  [style.width.px]="styleConfig.size" 
                  [style.height.px]="styleConfig.size">
-                <div class="chart-label">{{ 'RAM' | translate }}</div>
+                <div class="chart-label">
+                    <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.ram)" style="margin-right: 3px;"></i>
+                    <span>{{ 'RAM' | translate }}</span>
+                </div>
                 <canvas baseChart [data]="memData" [options]="chartOptions" [type]="doughnutChartType"></canvas>
                 <div class="chart-value">{{currentStats.mem | number:'1.0-0'}}%</div>
             </div>
@@ -43,7 +49,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                  *ngIf="defaultMetrics.disk"
                  [style.width.px]="styleConfig.size" 
                  [style.height.px]="styleConfig.size">
-                <div class="chart-label">{{ 'DISK' | translate }}</div>
+                <div class="chart-label">
+                    <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.disk)" style="margin-right: 3px;"></i>
+                    <span>{{ 'DISK' | translate }}</span>
+                </div>
                 <canvas baseChart [data]="diskData" [options]="chartOptions" [type]="doughnutChartType" *ngIf="currentStats.disk > 0"></canvas>
                 <div class="chart-value" [class.text-muted]="!currentStats.disk">
                     {{ currentStats.disk > 0 ? (currentStats.disk | number:'1.0-0') + '%' : '-' }}
@@ -93,7 +102,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
                  *ngIf="defaultMetrics.net"
                  [style.width.px]="styleConfig.size" 
                  [style.height.px]="styleConfig.size">
-                <div class="chart-label">{{ 'NET' | translate }}</div>
+                <div class="chart-label">
+                    <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.net)" style="margin-right: 3px;"></i>
+                    <span>{{ 'NET' | translate }}</span>
+                </div>
                 <div class="net-container">
                     <div class="net-row download">
                          <span>↓</span> {{ formatSpeed(currentStats.netRx) }}
@@ -192,8 +204,14 @@ export class ServerStatsFloatingPanelComponent implements OnInit, OnDestroy {
         (window as any).serverStatsFloating = this;
     }
 
+    readonly defaultIcons = DEFAULT_METRIC_ICONS;
+
     get defaultMetrics() {
         return this.config?.store?.plugin?.serverStats?.defaultMetrics || { cpu: true, ram: true, disk: true, net: true };
+    }
+
+    get showDefaultIcons(): boolean {
+        return this.config?.store?.plugin?.serverStats?.showDefaultIcons !== false;
     }
 
     private createChartData(color: string): ChartData<'doughnut'> {

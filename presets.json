@@ -51,7 +51,7 @@
     "label": "Docker",
     "command": "docker ps -q 2>/dev/null | wc -l",
     "type": "text",
-    "icon": "fab fa-docker",
+    "icon": "docker",
     "color": "#0db7ed",
     "interval": 10,
     "suffix": " run"
@@ -86,7 +86,7 @@
   },
   {
     "label": "I/O Wait",
-    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\\n\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
+    "command": "grep '^cpu ' /proc/stat > /tmp/cpu1; sleep 1; grep '^cpu ' /proc/stat >> /tmp/cpu1; awk 'NR==1{io1=$6;t1=$2+$3+$4+$5+$6+$7} NR==2{printf \"%.2f\",($6-io1)*100/($2+$3+$4+$5+$6+$7-t1)}' /tmp/cpu1",
     "type": "text",
     "icon": "hdd",
     "color": "#fdcb6e",

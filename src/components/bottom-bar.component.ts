@@ -3,7 +3,7 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser'
 import { Subscription } from 'rxjs'
 import { AppService, ConfigService } from 'tabby-core'
 import { StatsService } from '../services/stats.service'
-import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, isUrlOrDataUri, isFaIcon } from '../config'
+import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, isUrlOrDataUri, isFaIcon, DEFAULT_METRIC_ICONS } from '../config'
 
 @Component({
     selector: 'server-stats-bottom-bar',
@@ -18,7 +18,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
             <ng-container *ngIf="!loading">
                 <ng-container *ngIf="defaultMetrics.cpu">
                     <div class="stat-section">
-                        <div class="stat-label">{{ 'CPU' | translate }}</div>
+                        <div class="stat-label">
+                            <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.cpu)" style="font-size: 11px;"></i>
+                            <span>{{ 'CPU' | translate }}</span>
+                        </div>
                         <div class="stat-content">
                             <div class="progress-bar-container">
                                 <div class="progress-bar" [style.width.%]="currentStats.cpu" [style.background-color]="getCpuColor()"></div>
@@ -31,7 +34,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
 
                 <ng-container *ngIf="defaultMetrics.ram">
                     <div class="stat-section">
-                        <div class="stat-label">{{ 'RAM' | translate }}</div>
+                        <div class="stat-label">
+                            <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.ram)" style="font-size: 11px;"></i>
+                            <span>{{ 'RAM' | translate }}</span>
+                        </div>
                         <div class="stat-content">
                             <div class="progress-bar-container">
                                 <div class="progress-bar" [style.width.%]="currentStats.mem" [style.background-color]="getMemColor()"></div>
@@ -44,7 +50,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
 
                 <ng-container *ngIf="defaultMetrics.disk">
                     <div class="stat-section">
-                        <div class="stat-label">{{ 'DISK' | translate }}</div>
+                        <div class="stat-label">
+                            <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.disk)" style="font-size: 11px;"></i>
+                            <span>{{ 'DISK' | translate }}</span>
+                        </div>
                         <div class="stat-content">
                             <div class="progress-bar-container" *ngIf="currentStats.disk > 0">
                                 <div class="progress-bar" [style.width.%]="currentStats.disk" [style.background-color]="getDiskColor()"></div>
@@ -101,7 +110,10 @@ import { CustomMetric, evaluateColor, formatFontAwesomeIcon, getSvgPresetPath, i
 
                 <ng-container *ngIf="defaultMetrics.net">
                     <div class="stat-section net-section">
-                        <div class="stat-label">{{ 'NET' | translate }}</div>
+                        <div class="stat-label">
+                            <i *ngIf="showDefaultIcons" [class]="getIconClass(defaultIcons.net)" style="font-size: 11px;"></i>
+                            <span>{{ 'NET' | translate }}</span>
+                        </div>
                         <div class="net-container">
                             <div class="net-row download">
                                 <span>↓</span> <span class="net-value">{{ formatSpeed(currentStats.netRx) }}</span>
@@ -174,8 +186,14 @@ export class ServerStatsBottomBarComponent implements OnInit, OnDestroy {
     ) {
     }
 
+    readonly defaultIcons = DEFAULT_METRIC_ICONS;
+
     get defaultMetrics() {
         return this.config?.store?.plugin?.serverStats?.defaultMetrics || { cpu: true, ram: true, disk: true, net: true };
+    }
+
+    get showDefaultIcons(): boolean {
+        return this.config?.store?.plugin?.serverStats?.showDefaultIcons !== false;
     }
 
     getCpuColor(): string {

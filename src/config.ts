@@ -30,7 +30,8 @@ export {
     isFaIcon, 
     formatFontAwesomeIcon, 
     TECH_ICON_PATHS,
-    POPULAR_ICON_PRESETS 
+    POPULAR_ICON_PRESETS,
+    DEFAULT_METRIC_ICONS
 } from './icons/presets';
 
 export interface DefaultMetricsConfig {
@@ -134,6 +135,7 @@ export class ServerStatsConfigProvider extends ConfigProvider {
                     disk: true,
                     net: true
                 },
+                showDefaultIcons: true,
                 customMetrics: [] as CustomMetric[] 
             }
         }
