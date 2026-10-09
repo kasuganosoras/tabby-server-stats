@@ -394,6 +394,35 @@ export default class ServerStatsModule {
         host.appendChild(barElem)
         barRef.changeDetectorRef.detectChanges()
 
+        const triggerTerminalResize = () => {
+            try {
+                window.dispatchEvent(new Event('resize'));
+            } catch {}
+            const currentTab = this.resolveTabForElement(sshTabEl);
+            if (currentTab && currentTab.frontend) {
+                try {
+                    if (typeof (currentTab.frontend as any).resizeHandler === 'function') {
+                        (currentTab.frontend as any).resizeHandler();
+                    } else if ((currentTab.frontend as any).fitAddon && typeof (currentTab.frontend as any).fitAddon.fit === 'function') {
+                        (currentTab.frontend as any).fitAddon.fit();
+                    }
+                } catch {}
+            }
+        };
+
+        // Notify terminal to recalculate its rows/columns so full-screen TUI apps (nano, vim, htop)
+        // do not render behind the stats bar (fixes issue #10)
+        setTimeout(triggerTerminalResize, 50);
+        setTimeout(triggerTerminalResize, 250);
+
+        let resizeObserver: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== 'undefined') {
+            resizeObserver = new ResizeObserver(() => {
+                triggerTerminalResize();
+            });
+            resizeObserver.observe(host);
+        }
+
         const tab = this.resolveTabForElement(sshTabEl);
         if (tab && typeof tab.writeRaw === 'function' && !(tab as any).__ss_patched) {
             (tab as any).__ss_patched = true;
@@ -426,7 +455,10 @@ export default class ServerStatsModule {
         let frontendSub: any = null;
         if (tab && tab.frontendReady$) {
             frontendSub = tab.frontendReady$.subscribe(() => {
-                setTimeout(() => runPoll(), 200);
+                setTimeout(() => {
+                    triggerTerminalResize();
+                    runPoll();
+                }, 200);
             });
         }
 
@@ -514,6 +546,10 @@ export default class ServerStatsModule {
         })
 
         const teardown = () => {
+            if (resizeObserver) {
+                try { resizeObserver.disconnect() } catch {}
+                resizeObserver = null
+            }
             if (timerId) {
                 clearInterval(timerId)
             }
@@ -534,6 +570,7 @@ export default class ServerStatsModule {
             }
             sshTabEl.removeAttribute('data-ss-attached')
             sshTabEl.classList.remove('server-stats-tab')
+            setTimeout(triggerTerminalResize, 50)
         }
 
         this.tabInstances.set(sshTabEl, { teardown, timerId, collector, state, configSub })

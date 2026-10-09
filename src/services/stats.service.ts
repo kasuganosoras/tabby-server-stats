@@ -38,6 +38,7 @@ interface MetricState {
 
 interface SessionCache {
     lastBaseFetch: number
+    lastBaseSuccess: number
     baseStats: { cpu: number; mem: number; disk: number; netRx: number; netTx: number }
     metricStates: Map<string, MetricState>
 }
@@ -82,6 +83,7 @@ export class StatsService {
         if (!cache) {
             cache = {
                 lastBaseFetch: 0,
+                lastBaseSuccess: 0,
                 baseStats: { cpu: 0, mem: 0, disk: 0, netRx: 0, netTx: 0 },
                 metricStates: new Map<string, MetricState>()
             };
@@ -146,8 +148,14 @@ export class StatsService {
             return null;
         }
 
-        // Check if base stats need updating
-        const isBaseDue = isAnyDefaultMetricEnabled && (now - cache.lastBaseFetch >= defaultInterval * 1000);
+        // Check if base stats need updating (with bootstrap fast-retry of 4s if no success yet)
+        const hasInitialBase = cache.lastBaseSuccess > 0;
+        const baseInterval = defaultInterval * 1000;
+        const isBaseDue = isAnyDefaultMetricEnabled && (
+            !hasInitialBase
+                ? (cache.lastBaseFetch === 0 || (now - cache.lastBaseFetch >= 4000))
+                : (now - cache.lastBaseSuccess >= baseInterval)
+        );
 
         // Check which custom metrics are due
         const dueCustomMetrics: CustomMetric[] = [];
@@ -162,11 +170,20 @@ export class StatsService {
             }
 
             const mInterval = (m.interval && m.interval > 0 ? m.interval : defaultInterval) * 1000;
-            // Always respect the configured metric interval, even if the metric is currently in error,
-            // preventing servers from being flooded with failing commands every 5s.
-            const effectiveInterval = mInterval;
-            if (state.lastAttempt === 0 || (now - state.lastAttempt >= effectiveInterval)) {
-                dueCustomMetrics.push(m);
+            const hasInitialValue = state.lastSuccess > 0 && state.value !== '-' && !state.value.startsWith('Err:');
+
+            if (!hasInitialValue) {
+                // Bootstrap/Pending mode: Metric has no valid data on screen yet.
+                // Fetch immediately on connect (lastAttempt === 0), or retry promptly every 5s
+                // until the first successful data point is obtained.
+                if (state.lastAttempt === 0 || (now - state.lastAttempt >= 5000)) {
+                    dueCustomMetrics.push(m);
+                }
+            } else {
+                // Normal mode: Metric has valid data. Respect configured interval based on last successful fetch.
+                if (now - state.lastSuccess >= mInterval) {
+                    dueCustomMetrics.push(m);
+                }
             }
         }
 
@@ -223,50 +240,39 @@ export class StatsService {
                         mem: parseFloat(match[4]) || 0,
                         disk: parseFloat(match[5]) || 0
                     };
-                    if (cache.baseStats.disk !== newBase.disk || cache.baseStats.cpu !== newBase.cpu || cache.baseStats.mem !== newBase.mem) {
+                    cache.lastBaseSuccess = Date.now();
+                    cache.lastBaseFetch = Date.now();
+                    if (cache.baseStats.disk !== newBase.disk || cache.baseStats.cpu !== newBase.cpu || cache.baseStats.mem !== newBase.mem || cache.baseStats.netRx !== newBase.netRx || cache.baseStats.netTx !== newBase.netTx) {
                         cache.baseStats = newBase;
-                        cache.lastBaseFetch = Date.now();
                         updated = true;
                     }
                 }
             }
 
-            for (const m of dueCustomMetrics) {
-                const safeId = m.id.replace(/[^a-zA-Z0-9_-]/g, '');
-                const startTag = `TABBY-CUSTOM-START:${safeId}`;
-                const endTag = `TABBY-CUSTOM-END:${safeId}`;
+            // Parse custom metrics via atomic single-line protocol: TABBY-CUSTOM-RES:<safeId>:<val>
+            const customLineRegex = /TABBY-CUSTOM-RES:(m_[a-zA-Z0-9_-]+):([^\r\n]*)(?:\r?\n|$)/g;
+            let cMatch: RegExpExecArray | null;
+            while ((cMatch = customLineRegex.exec(currentBuffer)) !== null) {
+                const targetSafeId = cMatch[1];
+                let parsedVal = cMatch[2].replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
 
-                if (currentBuffer.includes(startTag) && currentBuffer.includes(endTag)) {
-                    const rawVal = currentBuffer.split(startTag)[1].split(endTag)[0];
-                    const cleanVal = rawVal.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
-
-                    // If output has multiple lines (e.g. warnings before value), take the last non-empty line
-                    const lines = cleanVal.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-                    const parsedVal = lines.length > 0 ? lines[lines.length - 1] : cleanVal;
-
+                const m = dueCustomMetrics.find(metric => ('m_' + metric.id.replace(/[^a-zA-Z0-9_-]/g, '')) === targetSafeId);
+                if (m) {
                     const state = cache.metricStates.get(m.id);
                     if (state) {
                         state.isFetching = false;
                         state.lastAttempt = Date.now();
 
-                        if (parsedVal !== undefined && parsedVal !== '') {
-                            if (parsedVal.startsWith('Err:')) {
-                                logDebug(`[metric:error] Server: ${serverKey}, ${m.label || m.id}: ${parsedVal}`);
-                                state.value = parsedVal;
-                            } else {
-                                state.lastSuccess = Date.now();
-                                if (state.value !== parsedVal) {
-                                    logDebug(`[metric:update] Server: ${serverKey}, ${m.label || m.id} -> ${parsedVal}`);
-                                    state.value = parsedVal;
-                                    updated = true;
-                                }
-                            }
+                        if (parsedVal.startsWith('Err:')) {
+                            logDebug(`[metric:error] Server: ${serverKey}, ${m.label || m.id}: ${parsedVal}`);
+                            state.value = parsedVal;
                         } else {
-                            // Empty output with 0 exit code
-                            logDebug(`[metric:empty] Server: ${serverKey}, ${m.label || m.id} produced empty output`);
                             state.lastSuccess = Date.now();
-                            state.value = '0';
-                            updated = true;
+                            if (state.value !== parsedVal) {
+                                logDebug(`[metric:update] Server: ${serverKey}, ${m.label || m.id} -> ${parsedVal}`);
+                                state.value = parsedVal;
+                                updated = true;
+                            }
                         }
                     }
                 }
@@ -278,8 +284,8 @@ export class StatsService {
         };
 
         const formatMetricCmd = (m: CustomMetric) => {
-            const safeId = m.id.replace(/[^a-zA-Z0-9_-]/g, '');
-            const mTimeout = Math.max(1, m.timeout || 15);
+            const safeId = 'm_' + m.id.replace(/[^a-zA-Z0-9_-]/g, '');
+            const mTimeout = Math.max(1, m.timeout || 30);
             return (
                 `(\n` +
                 `_out=$(\n` +
@@ -295,13 +301,15 @@ export class StatsService {
                 `)\n` +
                 `_code=$?\n` +
                 `if [ $_code -eq 124 ]; then\n` +
-                `printf 'TABBY-CUSTOM-START:${safeId}\\nErr: Timeout\\nTABBY-CUSTOM-END:${safeId}\\n'\n` +
+                `_val="Err: Timeout"\n` +
                 `elif [ $_code -eq 0 ]; then\n` +
-                `printf 'TABBY-CUSTOM-START:${safeId}\\n%s\\nTABBY-CUSTOM-END:${safeId}\\n' "$_out"\n` +
+                `_val=$(printf '%s\\n' "$_out" | awk 'NF{p=$0} END{print p}' | tr '\\r\\n' '  ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')\n` +
+                `[ -z "$_val" ] && _val="0"\n` +
                 `else\n` +
-                `_msg=$(echo "$_out" | tr '\\r\\n' '  ' | cut -c 1-60)\n` +
-                `printf 'TABBY-CUSTOM-START:${safeId}\\nErr: %s\\nTABBY-CUSTOM-END:${safeId}\\n' "\${_msg:-error}"\n` +
+                `_msg=$(printf '%s\\n' "$_out" | tr '\\r\\n' '  ' | cut -c 1-60 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')\n` +
+                `_val="Err: \${_msg:-error}"\n` +
                 `fi\n` +
+                `printf 'TABBY-CUSTOM-RES:%s:%s\\n' "${safeId}" "$_val"\n` +
                 `) &`
             );
         };
@@ -325,11 +333,11 @@ export class StatsService {
             const finalCommand = parts.join('\n') + '\n';
 
             let output: string | null = null;
-            let totalTimeoutSec = 20;
+            let totalTimeoutSec = 30;
             for (const m of dueCustomMetrics) {
                 totalTimeoutSec += Math.max(1, m.timeout || 30);
             }
-            const execTimeoutMs = Math.max(45000, totalTimeoutSec * 1000);
+            const execTimeoutMs = Math.max(60000, totalTimeoutSec * 1000);
 
             if (isSSH) {
                 output = await this.exec(sshClient, finalCommand, execTimeoutMs, onStreamingBuffer);
