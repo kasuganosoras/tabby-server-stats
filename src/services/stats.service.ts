@@ -406,6 +406,7 @@ export class StatsService {
     private async exec(sshClient: any, cmd: string, timeoutMs: number = 45000, onChunk?: (buffer: string) => void): Promise<string> {
         const startTime = Date.now();
         logDebug(`[exec:start] timeout=${timeoutMs}ms, cmdLength=${cmd.length}`);
+        const shellCommand = `/bin/sh -c '${cmd.replace(/'/g, "'\\''")}'`;
 
         let timeoutTimer: any = null;
         const timeout = new Promise<never>((_, reject) => {
@@ -530,13 +531,13 @@ export class StatsService {
                 }
 
                 if (typeof channel.requestExec === 'function') {
-                    channel.requestExec(cmd).catch((err: any) => {
+                    channel.requestExec(shellCommand).catch((err: any) => {
                         logDebug(`[exec:requestExec:error] ${err?.message || err}`);
                         cleanup();
                         reject(err);
                     });
                 } else if (typeof channel.exec === 'function') {
-                    channel.exec(cmd).catch((err: any) => {
+                    channel.exec(shellCommand).catch((err: any) => {
                         logDebug(`[exec:exec:error] ${err?.message || err}`);
                         cleanup();
                         reject(err);
