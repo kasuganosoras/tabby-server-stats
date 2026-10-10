@@ -114,7 +114,17 @@ export class StatsService {
         }
         const sshClient = session.ssh && session.ssh.ssh ? session.ssh.ssh : null;
         const isSSH = sshClient && typeof sshClient.openSessionChannel === 'function';
-        return isSSH || process.platform === 'linux' || process.platform === 'darwin';
+        return isSSH || process.platform === 'linux' || process.platform === 'darwin' || Boolean(this.getLocalShell());
+    }
+
+    private getLocalShell(): string | null {
+        if (process.platform !== 'win32') return null;
+        return [
+            process.env.MSYS2_SH,
+            ...(process.env.PATH || '').split(path.delimiter).map(dir => path.join(dir, 'sh.exe')),
+            'C:\\msys64\\usr\\bin\\sh.exe',
+            'C:\\msys32\\usr\\bin\\sh.exe'
+        ].find(shell => Boolean(shell && fs.existsSync(shell))) || null;
     }
 
     async fetchStats(session: any): Promise<any | null> {
@@ -142,7 +152,10 @@ export class StatsService {
 
         const sshClient = session.ssh && session.ssh.ssh ? session.ssh.ssh : null;
         const isSSH = sshClient && typeof sshClient.openSessionChannel === 'function';
-        const isLocalSupported = !isSSH && (process.platform === 'linux' || process.platform === 'darwin');
+        const localShell = isSSH ? null : this.getLocalShell();
+        const isLocalSupported = !isSSH && (
+            process.platform === 'linux' || process.platform === 'darwin' || Boolean(localShell)
+        );
 
         if (!isSSH && !isLocalSupported) {
             return null;
@@ -342,7 +355,7 @@ export class StatsService {
             if (isSSH) {
                 output = await this.exec(sshClient, finalCommand, execTimeoutMs, onStreamingBuffer);
             } else if (isLocalSupported) {
-                output = await this.execLocal(finalCommand, execTimeoutMs);
+                output = await this.execLocal(finalCommand, execTimeoutMs, localShell);
             }
 
             if (output) {
@@ -390,9 +403,9 @@ export class StatsService {
         }
     }
 
-    private execLocal(cmd: string, timeoutMs: number = 45000): Promise<string> {
+    private execLocal(cmd: string, timeoutMs: number = 45000, shell?: string | null): Promise<string> {
         return new Promise((resolve) => {
-            exec(cmd, { timeout: timeoutMs }, (error, stdout) => {
+            exec(cmd, { timeout: timeoutMs, ...(shell ? { shell } : {}) }, (error, stdout) => {
                 if (error) {
                     logDebug(`[execLocal:error] ${error.message}`);
                     resolve('');
@@ -406,7 +419,7 @@ export class StatsService {
     private async exec(sshClient: any, cmd: string, timeoutMs: number = 45000, onChunk?: (buffer: string) => void): Promise<string> {
         const startTime = Date.now();
         logDebug(`[exec:start] timeout=${timeoutMs}ms, cmdLength=${cmd.length}`);
-        const shellCommand = `/bin/sh -c '${cmd.replace(/'/g, "'\\''")}'`;
+        const shellCommand = `/bin/sh -c 'eval "$(printf %b "${Array.from(Buffer.from(cmd), byte => String.raw`\\0${byte.toString(8).padStart(3, '0')}`).join('')}")"'`;
 
         let timeoutTimer: any = null;
         const timeout = new Promise<never>((_, reject) => {
